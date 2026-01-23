@@ -10,6 +10,8 @@
 analyzer:
   errors:
     file_names: ignore
+  exclude:
+    - lib_old/**
 include: package:flutter_lints/flutter.yaml
 
 linter:

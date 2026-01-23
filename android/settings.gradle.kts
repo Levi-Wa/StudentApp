@@ -24,3 +24,5 @@ plugins {
 }
 
 include(":app")
+include(":apivideo_live_stream")
+project(":apivideo_live_stream").projectDir = File(rootProject.projectDir, "../.pub-cache/hosted/pub.dev/apivideo_live_stream-1.0.7/android")
