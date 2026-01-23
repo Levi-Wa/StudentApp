@@ -39,11 +39,10 @@ class AppState extends ChangeNotifier {
           .where((g) => g.formEdu == formEdu && g.course.toString() == course));
     }
 
-    // Вызываем notifyListeners только если список действительно изменился
     if (_filteredGroups.length != newFiltered.length ||
         !_filteredGroups.every((group) => newFiltered.contains(group))) {
       _filteredGroups = newFiltered;
-    notifyListeners();
+      notifyListeners();
     }
   }
 
@@ -62,64 +61,36 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> loadSchedule(int groupId, String groupName) async {
-    print('AppState: Начало загрузки расписания для группы $groupName (ID: $groupId)');
     _isLoading = true;
     notifyListeners();
-    
+
     try {
-      print('AppState: Сохраняю выбор группы...');
       await _repository.saveGroupSelection(groupId, groupName);
-      
-      print('AppState: Запрашиваю расписание с сервера...');
+
       _schedule = await _repository.getSchedule(groupId);
-      
+
       if (_schedule != null) {
-        print('AppState: Получено расписание для группы ${_schedule!.group}');
-        print('AppState: Количество дней: ${_schedule!.days.length}');
-        
-        for (var day in _schedule!.days) {
-          print('AppState: ${day.dayOfWeek} (${day.date}): ${day.lessons.length} занятий');
-          for (var lesson in day.lessons) {
-            print('  - ${lesson.time}: ${lesson.disc} (ауд. ${lesson.aud}, ${lesson.vidZan})');
-          }
-        }
-        
         if (_schedule!.days.isNotEmpty) {
           final today = DateTime.now();
           final todayName = _getDayName(today.weekday);
-          
+
           final todaySchedule = _schedule!.days.firstWhere(
             (day) => day.dayOfWeek == todayName,
             orElse: () => _schedule!.days.first,
           );
-          
+
           _selectedDay = todaySchedule.dayOfWeek;
-          print('AppState: Выбран день: $_selectedDay');
-        } else {
-          print('AppState: Нет дней в расписании');
         }
-        
-        // Временно отключаем планирование уведомлений для тестирования
-        // await _scheduleUpcomingLessonsNotifications();
-        print('AppState: Планирование уведомлений временно отключено');
-      } else {
-        print('AppState: Получено пустое расписание');
       }
     } catch (e) {
-      print('AppState: Ошибка загрузки расписания: $e');
       throw e;
     }
-    
+
     _isLoading = false;
-    print('AppState: Загрузка завершена - loadSchedule ЗАВЕРШЕН');
-    // НЕ вызываем notifyListeners() сразу, чтобы избежать проблем с Consumer'ами
   }
 
-  // Метод для вызова notifyListeners() после успешной навигации
   void notifyScheduleLoaded() {
-    print('AppState: Вызываю notifyListeners() после успешной навигации');
     notifyListeners();
-    print('AppState: notifyListeners() выполнен после навигации');
   }
 
   void selectDay(String day) {

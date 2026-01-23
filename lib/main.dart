@@ -31,7 +31,6 @@ void main() async {
   
   await NotificationService.initialize();
 
-  // Создаем AppState и инициализируем его
   final appState = AppState();
   await appState.initializeApp();
 

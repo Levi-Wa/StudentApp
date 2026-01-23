@@ -26,13 +26,11 @@ class _StartScreenState extends State<StartScreen> {
   }
 
   Future<void> _initializeApp() async {
-    // Запрашиваем разрешения через системные диалоги
     final permissionsGranted = await PermissionsService.requestSystemPermissions();
     setState(() {
       _permissionsRequested = true;
     });
 
-    // Всегда продолжаем, независимо от результата
     _checkExistingGroup();
   }
 
@@ -55,7 +53,6 @@ class _StartScreenState extends State<StartScreen> {
       backgroundColor: AppTheme.primaryBackground,
       body: Consumer<AppState>(
         builder: (context, appState, child) {
-          // Показываем индикатор загрузки пока запрашиваем разрешения
           if (!_permissionsRequested) {
             return Center(
               child: Column(
@@ -180,86 +177,32 @@ class _StartScreenState extends State<StartScreen> {
   }
 
   void _continue() async {
-    print('=== КНОПКА ПРОДОЛЖИТЬ НАЖАТА ===');
-    print('selectedForm: $selectedForm');
-    print('selectedCourse: $selectedCourse');
-    print('selectedGroup: $selectedGroup');
-
     try {
-      print('Получаю AppState provider...');
       final appState = Provider.of<AppState>(context, listen: false);
-      print('Ищу группу в списке...');
       final group = appState.groups.firstWhere((g) => g.name == selectedGroup);
-      print('Найдена группа: ${group.name} (ID: ${group.id})');
 
-      print('=== НАЧИНАЮ ЗАГРУЗКУ РАСПИСАНИЯ ===');
       await appState.loadSchedule(group.id, group.name);
-      print('=== РАСПИСАНИЕ ЗАГРУЖЕНО УСПЕШНО ===');
 
-      // Немедленная навигация без задержек
-      print('ВЫПОЛНЯЮ НЕМЕДЛЕННУЮ НАВИГАЦИЮ');
       if (mounted) {
-        print('Виджет mounted, выполняю Navigator.pushReplacementNamed');
-      Navigator.pushReplacementNamed(context, '/home');
-        print('=== НАВИГАЦИЯ НА /home ВЫПОЛНЕНА ===');
+        Navigator.pushReplacementNamed(context, '/home');
 
-        // Обновляем состояние после навигации
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          print('addPostFrameCallback: вызываю notifyScheduleLoaded');
           try {
             appState.notifyScheduleLoaded();
-            print('addPostFrameCallback: notifyScheduleLoaded выполнен успешно');
           } catch (e) {
-            print('addPostFrameCallback: ОШИБКА notifyScheduleLoaded: $e');
+            // ignore
           }
         });
-      } else {
-        print('ОШИБКА: Виджет не mounted при попытке навигации');
       }
-
     } catch (e) {
-      print('КРИТИЧЕСКАЯ ОШИБКА в _continue: $e');
-      print('StackTrace: ${StackTrace.current}');
       if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Ошибка: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
-    }
-    print('=== МЕТОД _continue ЗАВЕРШЕН ===');
-  }
-  
-  void _testNotification() async {
-    try {
-      print('Запуск тестового уведомления...');
-
-      // Показываем немедленное уведомление для тестирования
-      await NotificationService.showImmediateNotification(
-        'Тестовое уведомление',
-        'Это тестовое push-уведомление для проверки работы системы уведомлений',
-      );
-
-      print('Уведомление отправлено успешно');
-      
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Уведомление показано немедленно'),
-          backgroundColor: Colors.green,
-          duration: Duration(seconds: 3),
-        ),
-      );
-    } catch (e) {
-      print('Ошибка уведомления: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Ошибка уведомления: $e'),
-          backgroundColor: Colors.red,
-          duration: Duration(seconds: 5),
-        ),
-      );
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Ошибка: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 }
