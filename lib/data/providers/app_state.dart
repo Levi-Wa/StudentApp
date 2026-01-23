@@ -417,4 +417,12 @@ class AppState extends ChangeNotifier {
   Future<String?> getCurrentGroupName() async {
     return await _repository.getSavedGroupName();
   }
+
+  Future<int?> getSavedGroupId() async {
+    return await _repository.getSavedGroupId();
+  }
+
+  Future<String?> getSavedGroupName() async {
+    return await _repository.getSavedGroupName();
+  }
 }

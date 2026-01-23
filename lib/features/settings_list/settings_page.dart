@@ -29,19 +29,9 @@ class _SettingsPageState extends State<SettingsPage> {
   void initState() {
     super.initState();
     _loadNotificationSettings();
-    // Временно отключаем _loadGroups() чтобы избежать проблем с Consumer'ами
-    // _loadGroups();
+    _initializeCurrentGroup();
   }
 
-  Future<void> _loadGroups() async {
-    print('SettingsPage: Загружаю группы');
-    try {
-      await Provider.of<AppState>(context, listen: false).loadGroups();
-      print('SettingsPage: Группы загружены успешно');
-    } catch (e) {
-      print('SettingsPage: Ошибка загрузки групп: $e');
-    }
-  }
   
   void _loadNotificationSettings() async {
     final box = await Hive.openBox('notification_settings');
@@ -50,6 +40,29 @@ class _SettingsPageState extends State<SettingsPage> {
       noteNotifications = box.get('note_notifications', defaultValue: false);
       notificationPeriod = box.get('notification_period', defaultValue: 'За день');
     });
+  }
+
+  void _initializeCurrentGroup() async {
+    final appState = Provider.of<AppState>(context, listen: false);
+    await appState.loadGroups();
+
+    final groupId = await appState.getSavedGroupId();
+    final groupName = await appState.getSavedGroupName();
+
+    if (groupId != null && groupName != null) {
+      final currentGroup = appState.groups.firstWhere(
+        (group) => group.id == groupId && group.name == groupName,
+        orElse: () => Group(id: -1, name: '', formEdu: '', course: 0),
+      );
+
+      if (currentGroup.id != -1) {
+        setState(() {
+          _selectedFormEdu = currentGroup.formEdu;
+          _selectedCourse = currentGroup.course.toString();
+          _selectedGroup = currentGroup;
+        });
+      }
+    }
   }
 
   @override
@@ -234,6 +247,16 @@ class _SettingsPageState extends State<SettingsPage> {
                               ],
                         ),
                         SizedBox(height: 20),
+                        ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.blue,
+                            foregroundColor: Colors.white,
+                            minimumSize: Size(double.infinity, 48),
+                          ),
+                          onPressed: _changeGroup,
+                          child: Text('Сменить группу'),
+                        ),
+                        SizedBox(height: 16),
                         Row(
                           children: [
                             Expanded(
@@ -243,7 +266,7 @@ class _SettingsPageState extends State<SettingsPage> {
                                   foregroundColor: Colors.white,
                                 ),
                                 onPressed: _isUpdating ? null : _updateSchedule,
-                                child: _isUpdating 
+                                child: _isUpdating
                                   ? SizedBox(
                                       width: 20,
                                       height: 20,
@@ -381,18 +404,11 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   void _updateSchedule() async {
-    print('SettingsPage: Нажата кнопка "Обновить"');
-    print('SettingsPage: _selectedFormEdu: $_selectedFormEdu');
-    print('SettingsPage: _selectedCourse: $_selectedCourse');
-    print('SettingsPage: _selectedGroup: $_selectedGroup');
-
     try {
       final appState = Provider.of<AppState>(context, listen: false);
       setState(() => _isUpdating = true);
-      
+
       if (_selectedGroup != null) {
-        print('SettingsPage: Обновляю для новой группы ${_selectedGroup!.name}');
-        // Обновляем для новой группы
         await appState.loadSchedule(_selectedGroup!.id, _selectedGroup!.name);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -402,32 +418,27 @@ class _SettingsPageState extends State<SettingsPage> {
         );
       } else {
         final hasGroup = await appState.hasSelectedGroup();
-        print('SettingsPage: Группа сохранена: $hasGroup');
 
         if (hasGroup) {
-          print('SettingsPage: Обновляю текущую группу');
-        // Обновляем текущую группу
-        await appState.forceUpdateSchedule();
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Расписание обновлено'),
-            backgroundColor: Colors.green,
-          ),
-        );
-      } else {
-          print('SettingsPage: Группа не выбрана');
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Группа не выбрана'),
-            backgroundColor: Colors.orange,
-          ),
-        );
+          await appState.forceUpdateSchedule();
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Расписание обновлено'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Группа не выбрана'),
+              backgroundColor: Colors.orange,
+            ),
+          );
         }
       }
-      
+
       setState(() => _isUpdating = false);
     } catch (e) {
-      print('SettingsPage: Ошибка обновления: $e');
       setState(() => _isUpdating = false);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -465,15 +476,19 @@ class _SettingsPageState extends State<SettingsPage> {
       context: context,
       builder: (context) => AlertDialog(
         title: Text('Смена группы'),
-        content: Text('Перейти к выбору новой группы?'),
+        content: Text('Вы уверены, что хотите сменить группу? Текущие данные будут сброшены.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: Text('Отмена'),
           ),
           TextButton(
-            onPressed: () {
+            onPressed: () async {
               Navigator.pop(context);
+
+              final appState = Provider.of<AppState>(context, listen: false);
+              await appState.resetApp();
+
               Navigator.pushNamedAndRemoveUntil(context, '/', (route) => false);
             },
             child: Text('Да'),

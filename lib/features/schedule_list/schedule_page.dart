@@ -163,10 +163,8 @@ class _SchedulePageState extends State<SchedulePage> {
               Expanded(
                 child: Consumer<AppState>(
                   builder: (context, appState, child) {
-                    print('WeekDays Consumer: перестроение, дней: ${appState.currentWeekDays.length}');
                     final weekDays = appState.currentWeekDays;
                     if (weekDays.isEmpty) {
-                      print('WeekDays Consumer: дни недели пустые');
                       return Container();
                     }
                     
@@ -174,7 +172,6 @@ class _SchedulePageState extends State<SchedulePage> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: weekDays.map<Widget>((day) {
                         final isSelected = day.dayOfWeek == appState.selectedDay;
-                        print('  - День: ${day.dayOfWeek}, выбран: $isSelected');
                         return Container(
                           key: ValueKey(day.dayOfWeek),
                           margin: EdgeInsets.symmetric(vertical: 2),
@@ -189,7 +186,6 @@ class _SchedulePageState extends State<SchedulePage> {
                                 padding: EdgeInsets.zero,
                               ),
                               onPressed: () {
-                                print('Нажата кнопка дня: ${day.dayOfWeek}');
                                 appState.selectDay(day.dayOfWeek);
                               },
                               child: Text(
@@ -218,34 +214,26 @@ class _SchedulePageState extends State<SchedulePage> {
       ),
       body: Consumer<AppState>(
           builder: (context, appState, child) {
-        print('SchedulePage Consumer: перестроение, isLoading=${appState.isLoading}, schedule=${appState.schedule != null ? "есть" : "null"}');
-
         if (appState.isLoading) {
-          print('SchedulePage: показываю индикатор загрузки');
             return Center(child: CircularProgressIndicator());
         }
         if (appState.schedule == null) {
-          print('SchedulePage: нет данных о расписании');
             return Center(child: Text('Нет данных'));
         }
-          
+
           if (appState.schedule!.days.isEmpty) {
-          print('SchedulePage: расписание пустое');
             return Center(child: Text('Нет расписания'));
           }
-          
+
           final weekDays = appState.currentWeekDays;
-        print('SchedulePage: найдено дней недели: ${weekDays.length}');
           if (weekDays.isEmpty) {
-          print('SchedulePage: нет дней на выбранную неделю');
             return Center(child: Text('Нет расписания на выбранную неделю'));
           }
-          
+
           final selectedDay = weekDays.firstWhere(
             (day) => day.dayOfWeek == appState.selectedDay,
             orElse: () => weekDays.first,
           );
-        print('SchedulePage: выбран день ${selectedDay.dayOfWeek}, занятий: ${selectedDay.lessons.length}');
 
           if (selectedDay.lessons.isEmpty) {
             return Center(

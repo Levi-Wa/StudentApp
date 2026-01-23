@@ -20,11 +20,6 @@ class NotificationService {
     const settings = InitializationSettings(android: androidSettings, iOS: iosSettings);
     
     final bool? initialized = await _notifications.initialize(settings);
-    if (initialized != null && initialized) {
-      print('Уведомления инициализированы успешно');
-    } else {
-      print('Ошибка инициализации уведомлений');
-    }
 
     // Создаем каналы уведомлений
     await _createNotificationChannels();
@@ -32,9 +27,8 @@ class NotificationService {
     // Очищаем старые уведомления при запуске для избежания проблем
     try {
       await _notifications.cancelAll();
-      print('Старые уведомления очищены');
     } catch (e) {
-      print('Ошибка при очистке старых уведомлений: $e');
+      // ignore cleanup errors
     }
   }
   
@@ -67,9 +61,6 @@ class NotificationService {
       await androidPlugin.createNotificationChannel(androidChannel1);
       await androidPlugin.createNotificationChannel(androidChannel2);
       await androidPlugin.createNotificationChannel(androidChannel3);
-      print('Каналы уведомлений созданы');
-    } else {
-      print('Не удалось получить Android plugin для уведомлений');
     }
   }
 
@@ -143,8 +134,6 @@ class NotificationService {
   }
 
   static Future<void> showImmediateNotification(String title, String body) async {
-    print('Показываем немедленное уведомление: $title');
-
     await _notifications.show(
       DateTime.now().millisecondsSinceEpoch.remainder(100000),
       title,
@@ -186,12 +175,11 @@ class NotificationService {
         await _notifications.cancel(i);
       }
     } catch (e) {
-      print('Ошибка при отмене уведомлений о занятиях: $e');
       // В случае ошибки пробуем более мягкий подход - отменить по одному
       try {
         await _notifications.cancelAll();
       } catch (e2) {
-        print('Ошибка при отмене всех уведомлений: $e2');
+        // ignore
       }
     }
   }

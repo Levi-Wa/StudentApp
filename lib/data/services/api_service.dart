@@ -40,47 +40,30 @@ class ApiService {
 
       return allGroups;
     } catch (e) {
-      print('Detailed error: $e');
       throw Exception('Ошибка загрузки групп: $e');
     }
   }
 
   Future<FullSchedule> getSchedule(int groupId) async {
-    print('ApiService: === НАЧАЛО ЗАГРУЗКИ РАСПИСАНИЯ ===');
     try {
-      print('ApiService: Загружаю расписание для группы ID: $groupId');
       final url = 'https://api.ursei.su/public/schedule/rest/GetGsSched?grpid=$groupId';
-      print('ApiService: URL запроса: $url');
 
       final response = await _dio.get(url);
-      print('ApiService: Получен ответ от сервера, статус: ${response.statusCode}');
-      
+
       if (response.data == null) {
-        print('ApiService: ОШИБКА - пустой ответ от сервера');
         throw Exception('Нет данных о расписании');
       }
-      
-      print('ApiService: Парсинг данных расписания...');
+
       final schedule = FullSchedule.fromJson(response.data);
-      print('ApiService: Расписание успешно распарсено, найдено дней: ${schedule.days.length}');
-
-      for (var day in schedule.days) {
-        print('  - ${day.dayOfWeek} (${day.date}): ${day.lessons.length} занятий');
-      }
-
-      print('ApiService: === ЗАГРУЗКА РАСПИСАНИЯ ЗАВЕРШЕНА ===');
       return schedule;
     } on DioException catch (e) {
-      print('ApiService: DioException: ${e.type} - ${e.message}');
       if (e.type == DioExceptionType.connectionTimeout ||
           e.type == DioExceptionType.receiveTimeout ||
           e.type == DioExceptionType.connectionError) {
         throw NetworkException('Нет подключения к интернету');
       }
-      print('ApiService: Ошибка загрузки расписания: $e');
       throw Exception('Ошибка загрузки расписания: $e');
     } catch (e) {
-      print('ApiService: Неожиданная ошибка: $e');
       throw Exception('Ошибка загрузки расписания: $e');
     }
   }
