@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../theme/app_theme.dart';
+import '../../schedule_list/widgets/horizontal_week_calendar_dialog.dart';
 
 class DateFilter extends StatefulWidget {
   final Function(DateTime?) onDateSelected;
@@ -88,43 +89,81 @@ class _DateFilterState extends State<DateFilter> {
         itemBuilder: (context, index) {
           if (index == 0) {
             final isAll = selectedDate == null;
-            return GestureDetector(
-              onTap: () {
-                setState(() {
-                  selectedDate = null;
-                });
-                widget.onDateSelected(null);
-              },
-              child: Container(
-                width: 52,
-                margin: const EdgeInsets.symmetric(horizontal: 3),
-                decoration: BoxDecoration(
-                  color: isAll ? AppTheme.dockActiveAmber : surface,
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(
-                    color: isAll ? AppTheme.dockActiveAmber : divider,
-                  ),
-                ),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.all_inclusive_rounded,
-                      size: 16,
-                      color: isAll ? Colors.black : text,
+            return Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Open Calendar button (Mini or Full)
+                GestureDetector(
+                  onTap: () {
+                    showDialog(
+                      context: context,
+                      builder: (ctx) => HorizontalWeekCalendarDialog(
+                        initialMode: CalendarMode.month,
+                        onDatePicked: (pickedDate) {
+                          setState(() {
+                            selectedDate = pickedDate;
+                          });
+                          widget.onDateSelected(pickedDate);
+                        },
+                      ),
+                    );
+                  },
+                  child: Container(
+                    width: 44,
+                    margin: const EdgeInsets.only(right: 6),
+                    decoration: BoxDecoration(
+                      color: surface,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: divider),
                     ),
-                    const SizedBox(height: 2),
-                    Text(
-                      'Все',
-                      style: GoogleFonts.inter(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        color: isAll ? Colors.black : text,
+                    child: const Center(
+                      child: Icon(
+                        Icons.calendar_month_rounded,
+                        size: 20,
+                        color: AppTheme.dockActiveAmber,
                       ),
                     ),
-                  ],
+                  ),
                 ),
-              ),
+                GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      selectedDate = null;
+                    });
+                    widget.onDateSelected(null);
+                  },
+                  child: Container(
+                    width: 52,
+                    margin: const EdgeInsets.symmetric(horizontal: 3),
+                    decoration: BoxDecoration(
+                      color: isAll ? AppTheme.dockActiveAmber : surface,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                        color: isAll ? AppTheme.dockActiveAmber : divider,
+                      ),
+                    ),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.all_inclusive_rounded,
+                          size: 16,
+                          color: isAll ? Colors.black : text,
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Все',
+                          style: GoogleFonts.inter(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: isAll ? Colors.black : text,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
             );
           }
 

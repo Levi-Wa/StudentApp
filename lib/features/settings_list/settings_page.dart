@@ -9,8 +9,10 @@ import '../../data/providers/theme_provider.dart';
 import '../../data/providers/text_size_provider.dart';
 import '../../data/models/group.dart';
 import '../../data/services/notification_service.dart';
+import '../../data/services/schedule_comparison_service.dart';
 import '../../data/services/update_service.dart';
 import '../../utils/responsive_text.dart';
+import '../teacher_schedule/teacher_search_page.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -34,6 +36,7 @@ class _SettingsPageState extends State<SettingsPage> {
   bool _isCheckingUpdate = false;
   String? _updateStatusMessage;
   AppUpdateInfo? _availableUpdate;
+  bool _isComparingSchedule = false;
 
   @override
   void initState() {
@@ -176,8 +179,20 @@ class _SettingsPageState extends State<SettingsPage> {
           _buildGroupSection(appState, cardBg, surface, text, subtext, divider),
           const SizedBox(height: 16),
 
+          // Teachers & Departments Search Section (Request 5)
+          _buildTeacherSearchSection(cardBg, surface, text, subtext, divider),
+          const SizedBox(height: 16),
+
           // Schedule Sync section
           _buildSyncSection(appState, cardBg, surface, text, subtext, divider),
+          const SizedBox(height: 16),
+
+          // Schedule 17:00 Comparison Check (Request 8)
+          _buildScheduleComparisonSection(appState, cardBg, surface, text, subtext, divider),
+          const SizedBox(height: 16),
+
+          // Network, VPN & Offline Mode Section (Request 7)
+          _buildNetworkOfflineSection(appState, cardBg, surface, text, subtext, divider),
           const SizedBox(height: 16),
 
           // App Appearance & Notifications
@@ -956,6 +971,445 @@ class _SettingsPageState extends State<SettingsPage> {
         );
       }
     }
+  }
+
+  Widget _buildTeacherSearchSection(
+    Color cardBg,
+    Color surface,
+    Color text,
+    Color subtext,
+    Color divider,
+  ) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: cardBg,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: divider),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.person_search_rounded,
+                  color: AppTheme.dockActiveAmber, size: 22),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Преподаватели и кафедры',
+                  style: GoogleFonts.inter(
+                    fontSize: ResponsiveText.title(context),
+                    fontWeight: FontWeight.w700,
+                    color: text,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Быстрый поиск расписания преподавателей по кафедрам и ФИО.',
+            style: GoogleFonts.inter(fontSize: 13, color: subtext),
+          ),
+          const SizedBox(height: 14),
+          SizedBox(
+            width: double.infinity,
+            height: 46,
+            child: FilledButton.icon(
+              style: FilledButton.styleFrom(
+                backgroundColor: AppTheme.dockActiveAmber,
+                foregroundColor: Colors.black,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const TeacherSearchPage()),
+              ),
+              icon: const Icon(Icons.search, size: 18),
+              label: Text(
+                'Открыть поиск преподавателей',
+                style: GoogleFonts.inter(fontWeight: FontWeight.w700),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildScheduleComparisonSection(
+    AppState appState,
+    Color cardBg,
+    Color surface,
+    Color text,
+    Color subtext,
+    Color divider,
+  ) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: cardBg,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: divider),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.alarm_on_rounded,
+                  color: AppTheme.primaryAccent, size: 22),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Сверка расписания в 17:00',
+                  style: GoogleFonts.inter(
+                    fontSize: ResponsiveText.title(context),
+                    fontWeight: FontWeight.w700,
+                    color: text,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Ежедневно в 17:00 сверяет расписание на завтра с базой вуза и отправляет пуш-уведомление при переносах или отменах пар.',
+            style: GoogleFonts.inter(fontSize: 13, color: subtext),
+          ),
+          const SizedBox(height: 10),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: Text(
+              'Ежедневная сверка в 17:00',
+              style: GoogleFonts.inter(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: text,
+              ),
+            ),
+            subtitle: Text(
+              'Уведомлять при изменениях на следующий учебный день',
+              style: GoogleFonts.inter(fontSize: 12, color: subtext),
+            ),
+            value: appState.daily17CheckEnabled,
+            activeThumbColor: AppTheme.dockActiveAmber,
+            onChanged: (v) => appState.setDaily17CheckEnabled(v),
+          ),
+          const SizedBox(height: 10),
+          SizedBox(
+            width: double.infinity,
+            height: 46,
+            child: OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppTheme.dockActiveAmber,
+                side: const BorderSide(color: AppTheme.dockActiveAmber),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              onPressed: _isComparingSchedule
+                  ? null
+                  : () => _runScheduleComparison(context, appState),
+              icon: _isComparingSchedule
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.difference_rounded, size: 18),
+              label: Text(
+                _isComparingSchedule
+                    ? 'Сверка с сервером...'
+                    : 'Сверить расписание сейчас (тест 17:00)',
+                style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _runScheduleComparison(
+      BuildContext context, AppState appState) async {
+    setState(() => _isComparingSchedule = true);
+    final result = await ScheduleComparisonService().compareScheduleWithServer(
+      targetGroupId: appState.currentGroupId,
+    );
+    if (!mounted) return;
+    setState(() => _isComparingSchedule = false);
+
+    if (!context.mounted) return;
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        final isDark = Theme.of(ctx).brightness == Brightness.dark;
+        final cardBg = isDark ? const Color(0xFF1E2229) : Colors.white;
+        final text =
+            isDark ? const Color(0xFFF1F5F9) : const Color(0xFF191D23);
+        final subtext =
+            isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
+
+        return Dialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          backgroundColor: cardBg,
+          child: Padding(
+            padding: const EdgeInsets.all(22),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: result.hasChanges
+                            ? AppTheme.dockActiveAmber.withValues(alpha: 0.15)
+                            : const Color(0xFF10B981).withValues(alpha: 0.15),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        result.hasChanges
+                            ? Icons.notifications_active_rounded
+                            : Icons.check_circle_rounded,
+                        color: result.hasChanges
+                            ? AppTheme.dockActiveAmber
+                            : const Color(0xFF10B981),
+                        size: 26,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Сверка расписания',
+                            style: GoogleFonts.inter(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w700,
+                              color: text,
+                            ),
+                          ),
+                          Text(
+                            'Проверка изменений на сервере',
+                            style: GoogleFonts.inter(
+                              fontSize: 12,
+                              color: subtext,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                if (!result.hasChanges) ...[
+                  Text(
+                    'Изменений в расписании не найдено. Ваше расписание полностью актуально и совпадает с базой вуза.',
+                    style: GoogleFonts.inter(
+                        fontSize: 13.5, color: text, height: 1.4),
+                  ),
+                ] else ...[
+                  Text(
+                    'Найдены отличия в расписании:',
+                    style: GoogleFonts.inter(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: text,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Container(
+                    constraints: const BoxConstraints(maxHeight: 220),
+                    child: SingleChildScrollView(
+                      child: Column(
+                        children: result.changes.map((change) {
+                          return Container(
+                            margin: const EdgeInsets.only(bottom: 8),
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: change.changeType == 'removed'
+                                  ? Colors.red.withValues(alpha: 0.08)
+                                  : change.changeType == 'added'
+                                      ? Colors.green.withValues(alpha: 0.08)
+                                      : AppTheme.dockActiveAmber
+                                          .withValues(alpha: 0.08),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                color: change.changeType == 'removed'
+                                    ? Colors.red.withValues(alpha: 0.3)
+                                    : change.changeType == 'added'
+                                        ? Colors.green.withValues(alpha: 0.3)
+                                        : AppTheme.dockActiveAmber
+                                            .withValues(alpha: 0.3),
+                              ),
+                            ),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Icon(
+                                  change.changeType == 'removed'
+                                      ? Icons.cancel_outlined
+                                      : change.changeType == 'added'
+                                          ? Icons.add_circle_outline
+                                          : Icons.edit_calendar_rounded,
+                                  size: 16,
+                                  color: change.changeType == 'removed'
+                                      ? Colors.red
+                                      : change.changeType == 'added'
+                                          ? Colors.green
+                                          : AppTheme.dockActiveAmber,
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    change.description,
+                                    style: GoogleFonts.inter(
+                                        fontSize: 12.5, color: text),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 20),
+                FilledButton(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppTheme.dockActiveAmber,
+                    foregroundColor: Colors.black,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text('Понятно',
+                      style: TextStyle(fontWeight: FontWeight.w700)),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildNetworkOfflineSection(
+    AppState appState,
+    Color cardBg,
+    Color surface,
+    Color text,
+    Color subtext,
+    Color divider,
+  ) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: cardBg,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: divider),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.wifi_tethering_error_rounded,
+                  color: AppTheme.primaryAccent, size: 22),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Сеть, VPN и офлайн-режим',
+                  style: GoogleFonts.inter(
+                    fontSize: ResponsiveText.title(context),
+                    fontWeight: FontWeight.w700,
+                    color: text,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Настройка работы приложения при сбоях интернет-соединения или блокировке серверов вуза из-за VPN.',
+            style: GoogleFonts.inter(fontSize: 13, color: subtext),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'Действие при сбое сети или VPN:',
+            style: GoogleFonts.inter(
+                fontSize: 13, fontWeight: FontWeight.w600, color: text),
+          ),
+          const SizedBox(height: 6),
+          DropdownButtonFormField<String>(
+            initialValue: appState.offlineBehavior,
+            isExpanded: true,
+            decoration: InputDecoration(
+              filled: true,
+              fillColor: surface,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: divider),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: divider),
+              ),
+            ),
+            items: const [
+              DropdownMenuItem(
+                value: 'ask',
+                child: Text('Спрашивать переключение на офлайн',
+                    style: TextStyle(fontSize: 13)),
+              ),
+              DropdownMenuItem(
+                value: 'always_offline',
+                child: Text('Всегда автоматически использовать кэш',
+                    style: TextStyle(fontSize: 13)),
+              ),
+              DropdownMenuItem(
+                value: 'disabled',
+                child: Text('Не предлагать офлайн-режим',
+                    style: TextStyle(fontSize: 13)),
+              ),
+            ],
+            onChanged: (val) {
+              if (val != null) appState.setOfflineBehavior(val);
+            },
+          ),
+          const SizedBox(height: 10),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: Text(
+              'Принудительный офлайн-режим',
+              style: GoogleFonts.inter(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: text,
+              ),
+            ),
+            subtitle: Text(
+              appState.isOfflineMode
+                  ? 'Включен (работа исключительно из локального кэша)'
+                  : 'Выключен (работает онлайн с сервером)',
+              style: GoogleFonts.inter(fontSize: 12, color: subtext),
+            ),
+            value: appState.isOfflineMode,
+            activeThumbColor: AppTheme.dockActiveAmber,
+            onChanged: (v) => appState.setOfflineMode(v),
+          ),
+        ],
+      ),
+    );
   }
 
   void _showResetDialog() {

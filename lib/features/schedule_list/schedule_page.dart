@@ -8,6 +8,7 @@ import '../../data/providers/theme_provider.dart';
 import '../../data/services/update_service.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/responsive_text.dart';
+import '../teacher_schedule/teacher_search_page.dart';
 import 'widgets/lesson_card.dart';
 import 'widgets/horizontal_week_calendar_dialog.dart';
 
@@ -218,59 +219,77 @@ class _SchedulePageState extends State<SchedulePage>
     return Scaffold(
       backgroundColor: bg,
       body: SafeArea(
-        child: Row(
-          children: [
-            // ==================== COLLAPSIBLE LEFT DOCK (Request 1) ====================
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 250),
-              curve: Curves.easeInOut,
-              width: isDockVisible ? 62 : 0,
-              child: ClipRect(
-                child: OverflowBox(
-                  minWidth: 62,
-                  maxWidth: 62,
-                  alignment: Alignment.centerLeft,
-                  child: _buildLeftDock(
-                    context,
-                    appState,
-                    visibleDockDates,
-                    weekDays,
-                    now,
-                    notesProvider.notes.length,
+        child: GestureDetector(
+          behavior: HitTestBehavior.translucent,
+          onHorizontalDragEnd: (details) {
+            final vx = details.primaryVelocity ?? 0;
+            // Swipe left anywhere closes dock (Request 6)
+            if (vx < -220 && isDockVisible) {
+              appState.setDockVisible(false);
+            }
+            // Swipe right when dock is closed opens dock (Request 6)
+            else if (vx > 220 && !isDockVisible) {
+              appState.setDockVisible(true);
+            }
+          },
+          child: Row(
+            children: [
+              // ==================== COLLAPSIBLE LEFT DOCK (Request 1 & 6) ====================
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 250),
+                curve: Curves.easeInOut,
+                width: isDockVisible ? 62 : 0,
+                child: ClipRect(
+                  child: OverflowBox(
+                    minWidth: 62,
+                    maxWidth: 62,
+                    alignment: Alignment.centerLeft,
+                    child: _buildLeftDock(
+                      context,
+                      appState,
+                      visibleDockDates,
+                      weekDays,
+                      now,
+                      notesProvider.notes.length,
+                    ),
                   ),
                 ),
               ),
-            ),
 
-            // If dock is hidden, show a subtle floating expand tab on left edge
-            if (!isDockVisible)
-              GestureDetector(
-                onTap: () => appState.toggleDockVisible(),
-                child: Container(
-                  width: 14,
-                  height: 64,
-                  margin: const EdgeInsets.symmetric(vertical: 8),
-                  decoration: BoxDecoration(
-                    color: AppTheme.dockBg,
-                    borderRadius: const BorderRadius.horizontal(
-                      right: Radius.circular(10),
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.15),
-                        blurRadius: 4,
+              // If dock is hidden, show a subtle floating expand tab on left edge
+              if (!isDockVisible)
+                GestureDetector(
+                  onTap: () => appState.toggleDockVisible(),
+                  onHorizontalDragEnd: (details) {
+                    if ((details.primaryVelocity ?? 0) > 100) {
+                      appState.setDockVisible(true);
+                    }
+                  },
+                  child: Container(
+                    width: 14,
+                    height: 64,
+                    margin: const EdgeInsets.symmetric(vertical: 8),
+                    decoration: BoxDecoration(
+                      color: AppTheme.dockBg,
+                      borderRadius: const BorderRadius.horizontal(
+                        right: Radius.circular(10),
                       ),
-                    ],
-                  ),
-                  child: const Center(
-                    child: Icon(
-                      Icons.chevron_right_rounded,
-                      color: AppTheme.dockActiveAmber,
-                      size: 14,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.15),
+                          blurRadius: 4,
+                        ),
+                      ],
+                    ),
+                    child: const Center(
+                      child: Icon(
+                        Icons.chevron_right_rounded,
+                        color: AppTheme.dockActiveAmber,
+                        size: 14,
+                      ),
                     ),
                   ),
                 ),
-              ),
 
             // ==================== MAIN CONTENT AREA ====================
             Expanded(
@@ -290,6 +309,116 @@ class _SchedulePageState extends State<SchedulePage>
                     divider,
                   ),
 
+                  // Offline mode banner (Request 7)
+                  if (appState.isOfflineMode) ...[
+                    Container(
+                      margin: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 8),
+                      decoration: BoxDecoration(
+                        color:
+                            AppTheme.dockActiveAmber.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                            color: AppTheme.dockActiveAmber
+                                .withValues(alpha: 0.35)),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.cloud_off_rounded,
+                              size: 18, color: AppTheme.dockActiveAmber),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Офлайн-режим (данные из кэша)',
+                              style: GoogleFonts.inter(
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.w600,
+                                color: text,
+                              ),
+                            ),
+                          ),
+                          InkWell(
+                            onTap: _handleRefresh,
+                            child: Text(
+                              'Обновить онлайн',
+                              style: GoogleFonts.inter(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                color: AppTheme.dockActiveAmber,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+
+                  // Network / VPN conflict warning card (Request 7)
+                  if (appState.hasNetworkConflict &&
+                      !appState.isOfflineMode &&
+                      appState.offlineBehavior == 'ask') ...[
+                    Container(
+                      margin: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.orange.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                            color: Colors.orange.withValues(alpha: 0.35)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              const Icon(Icons.vpn_lock_rounded,
+                                  size: 18, color: Colors.orange),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'Сбой подключения к серверу (возможно, активен VPN).',
+                                  style: GoogleFonts.inter(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: text,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              FilledButton.tonal(
+                                style: FilledButton.styleFrom(
+                                  visualDensity: VisualDensity.compact,
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 10),
+                                ),
+                                onPressed: () => appState.setOfflineMode(true),
+                                child: const Text('Перейти в офлайн',
+                                    style: TextStyle(fontSize: 12)),
+                              ),
+                              const SizedBox(width: 8),
+                              TextButton(
+                                style: TextButton.styleFrom(
+                                  visualDensity: VisualDensity.compact,
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 8),
+                                ),
+                                onPressed: () =>
+                                    appState.setOfflineBehavior('disabled'),
+                                child: const Text('Не спрашивать',
+                                    style: TextStyle(fontSize: 12)),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+
                   // Lesson list with RefreshIndicator
                   Expanded(
                     child: RefreshIndicator(
@@ -305,8 +434,9 @@ class _SchedulePageState extends State<SchedulePage>
           ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   /// Left vertical dock matching the design in Image 1
   Widget _buildLeftDock(
@@ -317,10 +447,17 @@ class _SchedulePageState extends State<SchedulePage>
     DateTime now,
     int notesCount,
   ) {
-    return Container(
-      width: 62,
-      margin: const EdgeInsets.fromLTRB(8, 8, 0, 8),
-      decoration: BoxDecoration(
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onHorizontalDragEnd: (details) {
+        if ((details.primaryVelocity ?? 0) < -120) {
+          appState.setDockVisible(false);
+        }
+      },
+      child: Container(
+        width: 62,
+        margin: const EdgeInsets.fromLTRB(8, 8, 0, 8),
+        decoration: BoxDecoration(
         color: AppTheme.dockBg,
         borderRadius: BorderRadius.circular(26),
         boxShadow: [
@@ -510,6 +647,20 @@ class _SchedulePageState extends State<SchedulePage>
             ],
           ),
 
+          // Teacher Search Button (Request 5)
+          IconButton(
+            tooltip: 'Преподаватели',
+            icon: const Icon(
+              Icons.person_search_rounded,
+              color: Colors.white70,
+              size: 22,
+            ),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const TeacherSearchPage()),
+            ),
+          ),
+
           // Bottom Icon: Settings Gear (Image 1)
           IconButton(
             tooltip: 'Настройки',
@@ -524,8 +675,9 @@ class _SchedulePageState extends State<SchedulePage>
           const SizedBox(height: 8),
         ],
       ),
-    );
-  }
+    ),
+  );
+}
 
   /// Header with:
   /// 1. Top row: Toggle Dock button, Group pill, Refresh button, Date badge

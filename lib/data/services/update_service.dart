@@ -208,9 +208,23 @@ class UpdateService {
         onComplete(null);
       }
     } catch (e) {
-      // In case of error, fallback to browser
-      await launchDownload(downloadUrl);
-      onComplete(e.toString());
+      String userFriendlyMessage = 'Не удалось загрузить обновление.';
+      if (e is DioException) {
+        if (e.response?.statusCode == 404) {
+          userFriendlyMessage =
+              'Релиз с файлом APK ещё не опубликован в репозитории GitHub (ошибка 404). Создайте Release на GitHub и прикрепите файл app-release.apk.';
+        } else if (e.type == DioExceptionType.connectionTimeout ||
+            e.type == DioExceptionType.receiveTimeout) {
+          userFriendlyMessage =
+              'Превышено время ожидания сервера. Проверьте интернет или отключите VPN.';
+        } else {
+          userFriendlyMessage =
+              'Ошибка загрузки (${e.response?.statusCode ?? 'сеть'}). Проверьте подключение.';
+        }
+      } else {
+        userFriendlyMessage = 'Ошибка при установке: $e';
+      }
+      onComplete(userFriendlyMessage);
     }
   }
 
@@ -507,12 +521,52 @@ class _UpdateModalContentState extends State<_UpdateModalContent> {
           ],
 
           if (_errorMessage != null) ...[
-            const SizedBox(height: 12),
-            Text(
-              'Не удалось автоматически установить APK: $_errorMessage. Открываю браузер...',
-              style: GoogleFonts.inter(
-                fontSize: 12,
-                color: Colors.red,
+            const SizedBox(height: 14),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.red.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.red.withValues(alpha: 0.3)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Icon(Icons.info_outline_rounded,
+                          color: Colors.red, size: 20),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          _errorMessage!,
+                          style: GoogleFonts.inter(
+                            fontSize: 12.5,
+                            color: Colors.red,
+                            height: 1.35,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  TextButton.icon(
+                    style: TextButton.styleFrom(
+                      padding: EdgeInsets.zero,
+                      foregroundColor: AppTheme.dockActiveAmber,
+                      visualDensity: VisualDensity.compact,
+                    ),
+                    onPressed: () => UpdateService.launchDownload(
+                      'https://github.com/${UpdateService.githubOwner}/${UpdateService.githubRepo}/releases',
+                    ),
+                    icon: const Icon(Icons.open_in_browser_rounded, size: 16),
+                    label: const Text(
+                      'Открыть GitHub Releases в браузере',
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ],
               ),
             ),
           ],

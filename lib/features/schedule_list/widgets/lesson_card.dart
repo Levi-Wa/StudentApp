@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../data/models/lesson.dart';
+import '../../../data/services/teacher_service.dart';
 import '../../../theme/app_theme.dart';
 import '../../../utils/responsive_text.dart';
+import '../../teacher_schedule/teacher_schedule_page.dart';
+import '../../teacher_schedule/teacher_search_page.dart';
 
 class LessonCard extends StatelessWidget {
   final Lesson lesson;
@@ -406,18 +409,90 @@ class LessonCard extends StatelessWidget {
                     ],
                     if (lesson.prepod.isNotEmpty) ...[
                       const Divider(height: 20),
-                      _buildDetailRow(
-                        Icons.person_rounded,
-                        'Преподаватель',
-                        lesson.prepod,
-                        text,
-                        subtext,
+                      InkWell(
+                        borderRadius: BorderRadius.circular(8),
+                        onTap: () async {
+                          Navigator.pop(ctx);
+                          _openTeacherSchedule(context, lesson.prepod);
+                        },
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 4),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.person_rounded,
+                                  size: 18, color: AppTheme.dockActiveAmber),
+                              const SizedBox(width: 10),
+                              Text(
+                                'Преподаватель',
+                                style: GoogleFonts.inter(
+                                  fontSize: 13,
+                                  color: subtext,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              const Spacer(),
+                              Flexible(
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Flexible(
+                                      child: Text(
+                                        lesson.prepod,
+                                        textAlign: TextAlign.end,
+                                        style: GoogleFonts.inter(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w700,
+                                          color: AppTheme.dockActiveAmber,
+                                          decoration: TextDecoration.underline,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 4),
+                                    const Icon(
+                                      Icons.open_in_new_rounded,
+                                      size: 14,
+                                      color: AppTheme.dockActiveAmber,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
                     ],
                   ],
                 ),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 16),
+
+              if (lesson.prepod.isNotEmpty) ...[
+                OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppTheme.dockActiveAmber,
+                    side: const BorderSide(color: AppTheme.dockActiveAmber),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    _openTeacherSchedule(context, lesson.prepod);
+                  },
+                  icon: const Icon(Icons.calendar_month_rounded, size: 18),
+                  label: Text(
+                    'Расписание преподавателя: ${lesson.prepod}',
+                    style: GoogleFonts.inter(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                const SizedBox(height: 10),
+              ],
 
               // Action buttons: "Добавить заметку"
               FilledButton.icon(
@@ -447,6 +522,57 @@ class LessonCard extends StatelessWidget {
         );
       },
     );
+  }
+
+  Future<void> _openTeacherSchedule(
+      BuildContext context, String prepodFio) async {
+    // Show quick progress dialog
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(
+        child: CircularProgressIndicator(color: AppTheme.dockActiveAmber),
+      ),
+    );
+
+    try {
+      final teacher = await TeacherService().findTeacherByFio(prepodFio);
+      if (context.mounted) {
+        Navigator.pop(context); // close loader
+        if (teacher != null) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => TeacherSchedulePage(teacher: teacher),
+            ),
+          );
+        } else {
+          // If teacher couldn't be matched by name, open search page
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Преподаватель "$prepodFio" не найден автоматически. Открываю поиск...'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => const TeacherSearchPage(),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (context.mounted) {
+        Navigator.pop(context); // close loader
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Ошибка поиска преподавателя: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   Widget _buildDetailRow(

@@ -23,6 +23,10 @@ class AppState extends ChangeNotifier {
   bool _initialized = false;
   bool _hideEmptyDays = true;
   bool _isDockVisible = true;
+  bool _isOfflineMode = false;
+  bool _hasNetworkConflict = false;
+  String _offlineBehavior = 'ask'; // 'ask', 'always_offline', 'disabled'
+  bool _daily17CheckEnabled = true;
 
   late DateTime _selectedWeekStart;
 
@@ -43,6 +47,29 @@ class AppState extends ChangeNotifier {
   DateTime get selectedWeekStart => _selectedWeekStart;
   bool get hideEmptyDays => _hideEmptyDays;
   bool get isDockVisible => _isDockVisible;
+  bool get isOfflineMode => _isOfflineMode;
+  bool get hasNetworkConflict => _hasNetworkConflict;
+  String get offlineBehavior => _offlineBehavior;
+  bool get daily17CheckEnabled => _daily17CheckEnabled;
+
+  void setOfflineMode(bool value) {
+    _isOfflineMode = value;
+    notifyListeners();
+  }
+
+  Future<void> setOfflineBehavior(String value) async {
+    _offlineBehavior = value;
+    notifyListeners();
+    final box = await Hive.openBox('settings');
+    await box.put('offline_behavior', value);
+  }
+
+  Future<void> setDaily17CheckEnabled(bool value) async {
+    _daily17CheckEnabled = value;
+    notifyListeners();
+    final box = await Hive.openBox('settings');
+    await box.put('daily_17_check', value);
+  }
 
   Future<void> setHideEmptyDays(bool value) async {
     _hideEmptyDays = value;
@@ -150,6 +177,8 @@ class AppState extends ChangeNotifier {
 
       _schedule = freshSchedule;
       _lastUpdated = DateTime.now();
+      _isOfflineMode = false;
+      _hasNetworkConflict = false;
 
       await _checkScheduleChanges(oldSchedule, _schedule);
       _updateSelectedDayForCurrentSchedule();
@@ -160,6 +189,13 @@ class AppState extends ChangeNotifier {
       return true;
     } catch (e) {
       _lastSyncError = e.toString();
+      _hasNetworkConflict = true;
+
+      // If offline behavior is always_offline and we have a cached schedule, enable offline mode
+      if (_schedule != null && _offlineBehavior == 'always_offline') {
+        _isOfflineMode = true;
+      }
+
       _isRefreshing = false;
       notifyListeners();
       return false;
@@ -308,6 +344,10 @@ class AppState extends ChangeNotifier {
       final settingsBox = await Hive.openBox('settings');
       _hideEmptyDays = settingsBox.get('hide_empty_days', defaultValue: true);
       _isDockVisible = settingsBox.get('dock_visible', defaultValue: true);
+      _offlineBehavior =
+          settingsBox.get('offline_behavior', defaultValue: 'ask');
+      _daily17CheckEnabled =
+          settingsBox.get('daily_17_check', defaultValue: true);
 
       final groupId = await _repository.getSavedGroupId();
       final groupName = await _repository.getSavedGroupName();
@@ -350,7 +390,13 @@ class AppState extends ChangeNotifier {
       if (freshSchedule != oldSchedule) {
         _schedule = freshSchedule;
         _lastUpdated = await _repository.getLastUpdated() ?? DateTime.now();
+        _isOfflineMode = false;
+        _hasNetworkConflict = false;
         await _checkScheduleChanges(oldSchedule, _schedule);
+        notifyListeners();
+      } else {
+        _isOfflineMode = false;
+        _hasNetworkConflict = false;
         notifyListeners();
       }
     } catch (_) {
