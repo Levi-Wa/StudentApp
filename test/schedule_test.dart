@@ -20,7 +20,7 @@ void main() {
       expect(monday.hour, 0);
       expect(monday.minute, 0);
     });
-
+ 
     test('getMondayOfWeek on Sunday returns current week Monday', () {
       // Sunday 15 Nov 2026
       final sunday = DateTime(2026, 11, 15, 23, 59, 0);
