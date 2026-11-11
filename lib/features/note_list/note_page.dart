@@ -160,59 +160,13 @@ class _NotePageState extends State<NotePage> {
                   color: text,
                 ),
               )
-            : Row(
-                children: [
-                  Flexible(
-                    child: Text(
-                      'Заметки',
-                      style: GoogleFonts.inter(
-                        fontSize: 22,
-                        fontWeight: FontWeight.w800,
-                        color: text,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  const Spacer(),
-                  // Top right date badge matching Image 1 Tasks screen
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.baseline,
-                    textBaseline: TextBaseline.alphabetic,
-                    children: [
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          Text(
-                            _getDayShort(now.weekday),
-                            style: GoogleFonts.inter(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w600,
-                              color: subtext,
-                            ),
-                          ),
-                          Text(
-                            _getMonthShort(now.month),
-                            style: GoogleFonts.inter(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w500,
-                              color: subtext,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(width: 5),
-                      Text(
-                        '${now.day}',
-                        style: GoogleFonts.inter(
-                          fontSize: 24,
-                          fontWeight: FontWeight.w800,
-                          color: text,
-                          height: 0.9,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
+            : Text(
+                'Заметки',
+                style: GoogleFonts.inter(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w800,
+                  color: text,
+                ),
               ),
         leading: IconButton(
           icon: Icon(Icons.arrow_back_rounded, color: text),
@@ -237,6 +191,49 @@ class _NotePageState extends State<NotePage> {
               onPressed: _cancelSelection,
             ),
           ] else ...[
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.baseline,
+                textBaseline: TextBaseline.alphabetic,
+                children: [
+                  Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        _getDayShort(now.weekday),
+                        style: GoogleFonts.inter(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                          color: subtext,
+                        ),
+                      ),
+                      Text(
+                        _getMonthShort(now.month),
+                        style: GoogleFonts.inter(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w500,
+                          color: subtext,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(width: 5),
+                  Text(
+                    '${now.day}',
+                    style: GoogleFonts.inter(
+                      fontSize: 24,
+                      fontWeight: FontWeight.w800,
+                      color: text,
+                      height: 0.9,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 2),
             IconButton(
               tooltip: 'Добавить заметку',
               icon: const Icon(
@@ -246,6 +243,7 @@ class _NotePageState extends State<NotePage> {
               ),
               onPressed: _showCreateNoteDialog,
             ),
+            const SizedBox(width: 6),
           ],
         ],
       ),

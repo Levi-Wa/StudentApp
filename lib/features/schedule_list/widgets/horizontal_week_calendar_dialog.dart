@@ -33,9 +33,22 @@ class _HorizontalWeekCalendarDialogState
     super.initState();
     _mode = widget.initialMode;
     final appState = Provider.of<AppState>(context, listen: false);
-    _weekStart = AppState.getMondayOfWeek(appState.selectedWeekStart);
-    _selectedDate = _weekStart;
-    _displayMonth = DateTime(_weekStart.year, _weekStart.month, 1);
+    DateTime initDate = DateTime.now();
+    if (appState.selectedDateStr != null) {
+      try {
+        final parts = appState.selectedDateStr!.split('.');
+        if (parts.length == 3) {
+          initDate = DateTime(
+            int.parse(parts[2]),
+            int.parse(parts[1]),
+            int.parse(parts[0]),
+          );
+        }
+      } catch (_) {}
+    }
+    _selectedDate = initDate;
+    _weekStart = AppState.getMondayOfWeek(initDate);
+    _displayMonth = DateTime(initDate.year, initDate.month, 1);
   }
 
   String _weekdayShort(int weekday) {
@@ -169,9 +182,11 @@ class _HorizontalWeekCalendarDialogState
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Segmented mode switcher: [ Мини-календарь | Полный календарь ]
+            // Segmented mode switcher: [ Неделя | Месяц ]
             Container(
+              height: 44,
               padding: const EdgeInsets.all(4),
+              clipBehavior: Clip.antiAlias,
               decoration: BoxDecoration(
                 color: surface,
                 borderRadius: BorderRadius.circular(14),
@@ -183,38 +198,46 @@ class _HorizontalWeekCalendarDialogState
                     child: InkWell(
                       borderRadius: BorderRadius.circular(10),
                       onTap: () => setState(() => _mode = CalendarMode.week),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 8),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 180),
+                        curve: Curves.easeInOut,
                         decoration: BoxDecoration(
                           color: _mode == CalendarMode.week
                               ? AppTheme.dockActiveAmber
                               : Colors.transparent,
                           borderRadius: BorderRadius.circular(10),
                         ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.view_week_rounded,
-                              size: 16,
-                              color: _mode == CalendarMode.week
-                                  ? Colors.black
-                                  : subtext,
+                        alignment: Alignment.center,
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.view_week_rounded,
+                                  size: 16,
+                                  color: _mode == CalendarMode.week
+                                      ? Colors.black
+                                      : subtext,
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  'Неделя',
+                                  style: GoogleFonts.inter(
+                                    fontSize: 13,
+                                    fontWeight: _mode == CalendarMode.week
+                                        ? FontWeight.w700
+                                        : FontWeight.w500,
+                                    color: _mode == CalendarMode.week
+                                        ? Colors.black
+                                        : subtext,
+                                  ),
+                                ),
+                              ],
                             ),
-                            const SizedBox(width: 6),
-                            Text(
-                              'Мини (Неделя)',
-                              style: GoogleFonts.inter(
-                                fontSize: 12.5,
-                                fontWeight: _mode == CalendarMode.week
-                                    ? FontWeight.w700
-                                    : FontWeight.w500,
-                                color: _mode == CalendarMode.week
-                                    ? Colors.black
-                                    : subtext,
-                              ),
-                            ),
-                          ],
+                          ),
                         ),
                       ),
                     ),
@@ -224,38 +247,46 @@ class _HorizontalWeekCalendarDialogState
                     child: InkWell(
                       borderRadius: BorderRadius.circular(10),
                       onTap: () => setState(() => _mode = CalendarMode.month),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 8),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 180),
+                        curve: Curves.easeInOut,
                         decoration: BoxDecoration(
                           color: _mode == CalendarMode.month
                               ? AppTheme.dockActiveAmber
                               : Colors.transparent,
                           borderRadius: BorderRadius.circular(10),
                         ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.calendar_month_rounded,
-                              size: 16,
-                              color: _mode == CalendarMode.month
-                                  ? Colors.black
-                                  : subtext,
+                        alignment: Alignment.center,
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.calendar_month_rounded,
+                                  size: 16,
+                                  color: _mode == CalendarMode.month
+                                      ? Colors.black
+                                      : subtext,
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  'Месяц',
+                                  style: GoogleFonts.inter(
+                                    fontSize: 13,
+                                    fontWeight: _mode == CalendarMode.month
+                                        ? FontWeight.w700
+                                        : FontWeight.w500,
+                                    color: _mode == CalendarMode.month
+                                        ? Colors.black
+                                        : subtext,
+                                  ),
+                                ),
+                              ],
                             ),
-                            const SizedBox(width: 6),
-                            Text(
-                              'Полный (Месяц)',
-                              style: GoogleFonts.inter(
-                                fontSize: 12.5,
-                                fontWeight: _mode == CalendarMode.month
-                                    ? FontWeight.w700
-                                    : FontWeight.w500,
-                                color: _mode == CalendarMode.month
-                                    ? Colors.black
-                                    : subtext,
-                              ),
-                            ),
-                          ],
+                          ),
                         ),
                       ),
                     ),
@@ -280,8 +311,14 @@ class _HorizontalWeekCalendarDialogState
                 final now = DateTime.now();
                 _selectAndApply(now, appState);
               },
-              icon: const Icon(Icons.today, size: 18),
-              label: const Text('Перейти к сегодняшнему дню'),
+              icon: const Icon(Icons.today_rounded, size: 18),
+              label: Text(
+                'Сегодня (${DateTime.now().day} ${_monthShort(DateTime.now().month)})',
+                style: GoogleFonts.inter(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
               style: TextButton.styleFrom(
                 foregroundColor: AppTheme.dockActiveAmber,
               ),

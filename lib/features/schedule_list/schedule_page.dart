@@ -722,47 +722,49 @@ class _SchedulePageState extends State<SchedulePage>
               const SizedBox(width: 6),
 
               // Group Pill
-              Flexible(
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(10),
-                  onTap: () => Navigator.pushNamed(context, '/settings'),
-                  child: Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                    decoration: BoxDecoration(
-                      color: AppTheme.surface(context),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: divider),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(
-                          Icons.school_rounded,
-                          size: 14,
-                          color: AppTheme.dockActiveAmber,
-                        ),
-                        const SizedBox(width: 6),
-                        Flexible(
-                          child: Text(
-                            appState.currentGroupName ?? 'Выбрать группу',
-                            style: GoogleFonts.inter(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                              color: text,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+              InkWell(
+                borderRadius: BorderRadius.circular(10),
+                onTap: () => Navigator.pushNamed(context, '/settings'),
+                child: Container(
+                  constraints: const BoxConstraints(maxWidth: 140),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: AppTheme.surface(context),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: divider),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.school_rounded,
+                        size: 14,
+                        color: AppTheme.dockActiveAmber,
+                      ),
+                      const SizedBox(width: 5),
+                      Flexible(
+                        child: Text(
+                          (appState.currentGroupName != null &&
+                                  appState.currentGroupName!.trim().isNotEmpty)
+                              ? appState.currentGroupName!
+                              : 'Выбрать группу',
+                          style: GoogleFonts.inter(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: text,
                           ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
-                        const SizedBox(width: 4),
-                        Icon(
-                          Icons.keyboard_arrow_down_rounded,
-                          size: 16,
-                          color: subtext,
-                        ),
-                      ],
-                    ),
+                      ),
+                      const SizedBox(width: 3),
+                      Icon(
+                        Icons.keyboard_arrow_down_rounded,
+                        size: 16,
+                        color: subtext,
+                      ),
+                    ],
                   ),
                 ),
               ),

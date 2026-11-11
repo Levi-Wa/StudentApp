@@ -430,15 +430,17 @@ class LessonCard extends StatelessWidget {
                                   fontWeight: FontWeight.w500,
                                 ),
                               ),
-                              const Spacer(),
-                              Flexible(
+                              const SizedBox(width: 12),
+                              Expanded(
                                 child: Row(
-                                  mainAxisSize: MainAxisSize.min,
+                                  mainAxisAlignment: MainAxisAlignment.end,
                                   children: [
                                     Flexible(
                                       child: Text(
                                         lesson.prepod,
                                         textAlign: TextAlign.end,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
                                         style: GoogleFonts.inter(
                                           fontSize: 13,
                                           fontWeight: FontWeight.w700,
@@ -471,7 +473,8 @@ class LessonCard extends StatelessWidget {
                   style: OutlinedButton.styleFrom(
                     foregroundColor: AppTheme.dockActiveAmber,
                     side: const BorderSide(color: AppTheme.dockActiveAmber),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    padding: const EdgeInsets.symmetric(
+                        vertical: 12, horizontal: 16),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(14),
                     ),
@@ -482,10 +485,10 @@ class LessonCard extends StatelessWidget {
                   },
                   icon: const Icon(Icons.calendar_month_rounded, size: 18),
                   label: Text(
-                    'Расписание преподавателя: ${lesson.prepod}',
+                    'Расписание преподавателя',
                     style: GoogleFonts.inter(
                       fontWeight: FontWeight.w600,
-                      fontSize: 13,
+                      fontSize: 13.5,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
