@@ -2,128 +2,157 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class AppTheme {
-  static Color get primaryBackground => _isDark ? darkPrimaryBackground : Color(0xFFF1F4F8);
-  static Color get primaryText => _isDark ? Color(0xFFE0E0E0) : Color(0xFF282E35);
-  static Color get secondaryBackground => _isDark ? darkSecondaryBackground : Color(0xFFFFFFFF);
-  static Color get alternate => _isDark ? Color(0xFF404040) : Color(0xFFE0E3E7);
-  static const Color info = Color(0xFF0065FF);
-  static const Color warning = Color(0xFFFF9500);
-  static const Color customColor1 = Color(0xFF39D2C0);
-  
   static bool _isDark = false;
+
   static void setDarkMode(bool isDark) {
     _isDark = isDark;
+  }
+
+  static bool get isDark => _isDark;
+
+  // Background colors
+  static Color get primaryBackground =>
+      _isDark ? const Color(0xFF121417) : const Color(0xFFF6F8FA);
+  static Color get secondaryBackground =>
+      _isDark ? const Color(0xFF1E2228) : Colors.white;
+  static Color get surfaceBackground =>
+      _isDark ? const Color(0xFF262C34) : const Color(0xFFEFF2F6);
+
+  // Text colors
+  static Color get primaryText =>
+      _isDark ? const Color(0xFFF0F4F8) : const Color(0xFF191D23);
+  static Color get secondaryText =>
+      _isDark ? const Color(0xFF9AA5B1) : const Color(0xFF626D7A);
+
+  // Borders & Dividers
+  static Color get dividerColor =>
+      _isDark ? const Color(0xFF2B323C) : const Color(0xFFE2E7EE);
+
+  // Brand Accent
+  static const Color primaryAccent = Color(0xFF2563EB); // Royal Blue
+  static const Color accentLight = Color(0xFF3B82F6);
+
+  // Lesson Type semantic colors
+  static const Color lectureBgLight = Color(0xFFE0EDFF);
+  static const Color lectureFgLight = Color(0xFF1D4ED8);
+  static const Color lectureBgDark = Color(0xFF1E3A8A);
+  static const Color lectureFgDark = Color(0xFF93C5FD);
+
+  static const Color practiceBgLight = Color(0xFFDCFCE7);
+  static const Color practiceFgLight = Color(0xFF15803D);
+  static const Color practiceBgDark = Color(0xFF14532D);
+  static const Color practiceFgDark = Color(0xFF86EFAC);
+
+  static const Color labBgLight = Color(0xFFF3E8FF);
+  static const Color labFgLight = Color(0xFF7E22CE);
+  static const Color labBgDark = Color(0xFF581C87);
+  static const Color labFgDark = Color(0xFFD8B4FE);
+
+  static const Color examBgLight = Color(0xFFFEE2E2);
+  static const Color examFgLight = Color(0xFFB91C1C);
+  static const Color examBgDark = Color(0xFF7F1D1D);
+  static const Color examFgDark = Color(0xFFFCA5A5);
+
+  static const Color otherBgLight = Color(0xFFFEF3C7);
+  static const Color otherFgLight = Color(0xFFB45309);
+  static const Color otherBgDark = Color(0xFF78350F);
+  static const Color otherFgDark = Color(0xFFFDE68A);
+
+  static (Color bg, Color fg) getLessonTypeColors(String type) {
+    final lower = type.toLowerCase();
+    if (lower.contains('лек')) {
+      return _isDark
+          ? (lectureBgDark, lectureFgDark)
+          : (lectureBgLight, lectureFgLight);
+    } else if (lower.contains('пр') || lower.contains('сем')) {
+      return _isDark
+          ? (practiceBgDark, practiceFgDark)
+          : (practiceBgLight, practiceFgLight);
+    } else if (lower.contains('лаб') || lower.contains('лр')) {
+      return _isDark ? (labBgDark, labFgDark) : (labBgLight, labFgLight);
+    } else if (lower.contains('экз') || lower.contains('зач')) {
+      return _isDark ? (examBgDark, examFgDark) : (examBgLight, examFgLight);
+    }
+    return _isDark ? (otherBgDark, otherFgDark) : (otherBgLight, otherFgLight);
   }
 
   static ThemeData get lightTheme {
     return ThemeData(
       brightness: Brightness.light,
-      primarySwatch: Colors.grey,
+      useMaterial3: true,
+      scaffoldBackgroundColor: const Color(0xFFF6F8FA),
       colorScheme: ColorScheme.fromSeed(
-        seedColor: Colors.grey,
-        primary: Colors.black,
-        secondary: Colors.grey,
+        seedColor: primaryAccent,
+        primary: primaryAccent,
         surface: Colors.white,
-        onSurface: Colors.black,
+        onSurface: const Color(0xFF191D23),
         brightness: Brightness.light,
       ),
-      scaffoldBackgroundColor: primaryBackground,
       appBarTheme: AppBarTheme(
-        backgroundColor: primaryBackground,
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.transparent,
         elevation: 0,
-        iconTheme: IconThemeData(color: primaryText),
-        titleTextStyle: GoogleFonts.robotoCondensed(
-          color: primaryText,
-          fontSize: 24,
-          fontWeight: FontWeight.w500,
+        centerTitle: false,
+        iconTheme: const IconThemeData(color: Color(0xFF191D23)),
+        titleTextStyle: GoogleFonts.inter(
+          color: const Color(0xFF191D23),
+          fontSize: 20,
+          fontWeight: FontWeight.w700,
         ),
       ),
-      textTheme: TextTheme(
-        displayLarge:
-            GoogleFonts.oswald(fontSize: 57, fontWeight: FontWeight.w400),
-        displayMedium:
-            GoogleFonts.oswald(fontSize: 45, fontWeight: FontWeight.w400),
-        displaySmall: GoogleFonts.robotoCondensed(
-            fontSize: 36, fontWeight: FontWeight.w700),
-        headlineSmall:
-            GoogleFonts.interTight(fontSize: 24, fontWeight: FontWeight.w600),
-        titleLarge:
-            GoogleFonts.interTight(fontSize: 22, fontWeight: FontWeight.w400),
-        bodyLarge: GoogleFonts.robotoCondensed(
-            fontSize: 18, fontWeight: FontWeight.w400),
-        bodyMedium:
-            GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w500),
-        labelLarge:
-            GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w500),
-      ),
-      elevatedButtonTheme: ElevatedButtonThemeData(
-        style: ElevatedButton.styleFrom(
-          backgroundColor: primaryText,
-          foregroundColor: Colors.white,
-          textStyle:
-              GoogleFonts.roboto(fontSize: 20, fontWeight: FontWeight.w600),
+      cardTheme: CardThemeData(
+        color: Colors.white,
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: const BorderSide(color: Color(0xFFE2E7EE), width: 1),
         ),
       ),
+      dialogTheme: DialogThemeData(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      ),
+      textTheme: GoogleFonts.interTextTheme(ThemeData.light().textTheme),
     );
   }
 
   static ThemeData get darkTheme {
     return ThemeData(
       brightness: Brightness.dark,
-      primarySwatch: Colors.grey,
+      useMaterial3: true,
+      scaffoldBackgroundColor: const Color(0xFF121417),
       colorScheme: ColorScheme.fromSeed(
-        seedColor: Colors.grey,
-        primary: Colors.white,
-        secondary: Colors.grey,
-        surface: Color(0xFF1E1E1E),
-        onSurface: Colors.white,
+        seedColor: primaryAccent,
+        primary: accentLight,
+        surface: const Color(0xFF1E2228),
+        onSurface: const Color(0xFFF0F4F8),
         brightness: Brightness.dark,
       ),
-      scaffoldBackgroundColor: Color(0xFF121212),
       appBarTheme: AppBarTheme(
-        backgroundColor: Color(0xFF1E1E1E),
+        backgroundColor: const Color(0xFF1E2228),
+        surfaceTintColor: Colors.transparent,
         elevation: 0,
-        iconTheme: IconThemeData(color: Colors.white),
-        titleTextStyle: GoogleFonts.robotoCondensed(
-          color: Colors.white,
-          fontSize: 24,
-          fontWeight: FontWeight.w500,
+        centerTitle: false,
+        iconTheme: const IconThemeData(color: Color(0xFFF0F4F8)),
+        titleTextStyle: GoogleFonts.inter(
+          color: const Color(0xFFF0F4F8),
+          fontSize: 20,
+          fontWeight: FontWeight.w700,
         ),
       ),
-      cardColor: Color(0xFF2D2D2D),
-      textTheme: TextTheme(
-        displayLarge:
-            GoogleFonts.oswald(fontSize: 57, fontWeight: FontWeight.w400, color: Colors.white),
-        displayMedium:
-            GoogleFonts.oswald(fontSize: 45, fontWeight: FontWeight.w400, color: Colors.white),
-        displaySmall: GoogleFonts.robotoCondensed(
-            fontSize: 36, fontWeight: FontWeight.w700, color: Colors.white),
-        headlineSmall:
-            GoogleFonts.interTight(fontSize: 24, fontWeight: FontWeight.w600, color: Colors.white),
-        titleLarge:
-            GoogleFonts.interTight(fontSize: 22, fontWeight: FontWeight.w400, color: Colors.white),
-        bodyLarge: GoogleFonts.robotoCondensed(
-            fontSize: 18, fontWeight: FontWeight.w400, color: Colors.white),
-        bodyMedium:
-            GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w500, color: Colors.white),
-        labelLarge:
-            GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w500, color: Colors.white),
-      ),
-      elevatedButtonTheme: ElevatedButtonThemeData(
-        style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.white,
-          foregroundColor: Colors.black,
-          textStyle:
-              GoogleFonts.roboto(fontSize: 20, fontWeight: FontWeight.w600),
+      cardTheme: CardThemeData(
+        color: const Color(0xFF1E2228),
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: const BorderSide(color: Color(0xFF2B323C), width: 1),
         ),
       ),
+      dialogTheme: DialogThemeData(
+        backgroundColor: const Color(0xFF1E2228),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      ),
+      textTheme: GoogleFonts.interTextTheme(ThemeData.dark().textTheme),
     );
   }
-
-  static ThemeData get theme => lightTheme;
-
-  // Dark theme colors
-  static const Color darkPrimaryBackground = Color(0xFF121212);
-  static const Color darkPrimaryText = Colors.white;
-  static const Color darkSecondaryBackground = Color(0xFF2D2D2D);
 }

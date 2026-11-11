@@ -13,36 +13,31 @@ class ScheduleRepository {
 
   Future<FullSchedule> getSchedule(int groupId,
       {bool forceUpdate = false}) async {
-    // Check if we have cached data and don't need update
+    // Если принудительное обновление не запрошено и кэш свежий — возвращаем кэш
     if (!forceUpdate && !await _localStorage.needsUpdate()) {
       final cachedSchedule = await _localStorage.getSchedule();
       if (cachedSchedule != null) {
-        print('Using cached schedule');
         return cachedSchedule;
       }
     }
 
-    // Try to get fresh data from API
+    // Загружаем свежие данные из API
     try {
-      final hasInternet = await _apiService.hasInternetConnection();
-      if (!hasInternet) {
-        throw NetworkException('No internet connection');
-      }
-      
       final schedule = await _apiService.getSchedule(groupId);
       await _localStorage.saveSchedule(schedule);
-      print('Schedule updated from server');
       return schedule;
     } catch (e) {
-      // If network fails, try to use cached data
+      // При сетевой ошибке пытаемся вернуть кэшированные данные
       final cachedSchedule = await _localStorage.getSchedule();
       if (cachedSchedule != null) {
-        print('Using cached schedule due to network error: $e');
         return cachedSchedule;
       }
-      // If no cache available, rethrow the error
-      throw e;
+      rethrow;
     }
+  }
+
+  Future<DateTime?> getLastUpdated() async {
+    return await _localStorage.getLastUpdated();
   }
 
   Future<void> saveGroupSelection(int groupId, String groupName) async {
@@ -56,7 +51,7 @@ class ScheduleRepository {
   Future<String?> getSavedGroupName() async {
     return await _localStorage.getGroupName();
   }
-  
+
   Future<void> clearAllData() async {
     await _localStorage.clearAll();
   }

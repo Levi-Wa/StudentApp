@@ -19,7 +19,7 @@ class NotificationService {
     const iosSettings = DarwinInitializationSettings();
     const settings = InitializationSettings(android: androidSettings, iOS: iosSettings);
     
-    final bool? initialized = await _notifications.initialize(settings);
+    await _notifications.initialize(settings);
 
     // Создаем каналы уведомлений
     await _createNotificationChannels();

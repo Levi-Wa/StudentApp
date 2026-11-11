@@ -2,106 +2,219 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../../../data/models/note.dart';
-import '../../../data/models/day_schedule.dart';
 import '../../../data/providers/app_state.dart';
 import '../../../data/providers/notes_provider.dart';
+import '../../../theme/app_theme.dart';
 import '../../../utils/responsive_text.dart';
 
 class CreateNoteDialog extends StatefulWidget {
+  const CreateNoteDialog({super.key});
+
   @override
-  _CreateNoteDialogState createState() => _CreateNoteDialogState();
+  State<CreateNoteDialog> createState() => _CreateNoteDialogState();
 }
 
 class _CreateNoteDialogState extends State<CreateNoteDialog> {
   final _textController = TextEditingController();
+  final _customSubjectController = TextEditingController();
+  final _dateController = TextEditingController();
+
   String? selectedSubject;
   DateTime? selectedDate;
+  bool _isCustomSubject = false;
 
+  @override
+  void dispose() {
+    _textController.dispose();
+    _customSubjectController.dispose();
+    _dateController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: EdgeInsets.all(20),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      backgroundColor: AppTheme.secondaryBackground,
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(22),
         child: Column(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
-              'Создать заметку',
-              style: GoogleFonts.robotoCondensed(
+              'Новая заметка',
+              style: GoogleFonts.inter(
                 fontSize: ResponsiveText.title(context),
-                fontWeight: FontWeight.bold,
+                fontWeight: FontWeight.w700,
+                color: AppTheme.primaryText,
               ),
               textAlign: TextAlign.center,
             ),
-            SizedBox(height: 20),
+            const SizedBox(height: 20),
+
+            // Subject selector or custom input
             Consumer<AppState>(
               builder: (context, appState, child) {
                 final subjects = appState.schedule?.days
-                    .expand((day) => day.lessons)
-                    .map((lesson) => lesson.disc)
-                    .toSet()
-                    .toList() ?? [];
+                        .expand((day) => day.lessons)
+                        .map((lesson) => lesson.disc)
+                        .where((d) => d.isNotEmpty)
+                        .toSet()
+                        .toList() ??
+                    [];
 
-                return DropdownButtonFormField<String>(
-                  value: selectedSubject,
-                  decoration: InputDecoration(
-                    labelText: 'Предмет',
-                    border: OutlineInputBorder(),
-                  ),
-                  isExpanded: true,
-                  items: subjects.map((subject) => 
-                    DropdownMenuItem(value: subject, child: Text(subject, overflow: TextOverflow.ellipsis))
-                  ).toList(),
-                  onChanged: (value) {
-                    setState(() {
-                      selectedSubject = value;
-                      selectedDate = null;
-                    });
-                  },
+                if (_isCustomSubject || subjects.isEmpty) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      TextField(
+                        controller: _customSubjectController,
+                        decoration: InputDecoration(
+                          labelText: 'Название предмета / темы',
+                          filled: true,
+                          fillColor: AppTheme.surfaceBackground,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            borderSide:
+                                BorderSide(color: AppTheme.dividerColor),
+                          ),
+                        ),
+                        onChanged: (_) => setState(() {}),
+                      ),
+                      if (subjects.isNotEmpty)
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: TextButton(
+                            onPressed: () =>
+                                setState(() => _isCustomSubject = false),
+                            child: const Text('Выбрать из расписания',
+                                style: TextStyle(fontSize: 12)),
+                          ),
+                        ),
+                    ],
+                  );
+                }
+
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    DropdownButtonFormField<String>(
+                      value: selectedSubject,
+                      decoration: InputDecoration(
+                        labelText: 'Предмет',
+                        filled: true,
+                        fillColor: AppTheme.surfaceBackground,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: BorderSide(color: AppTheme.dividerColor),
+                        ),
+                      ),
+                      isExpanded: true,
+                      items: subjects
+                          .map((subject) => DropdownMenuItem(
+                                value: subject,
+                                child: Text(
+                                  subject,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: GoogleFonts.inter(
+                                    fontSize: 14,
+                                    color: AppTheme.primaryText,
+                                  ),
+                                ),
+                              ))
+                          .toList(),
+                      onChanged: (value) {
+                        setState(() {
+                          selectedSubject = value;
+                        });
+                      },
+                    ),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton(
+                        onPressed: () =>
+                            setState(() => _isCustomSubject = true),
+                        child: const Text('Ввести своё название',
+                            style: TextStyle(fontSize: 12)),
+                      ),
+                    ),
+                  ],
                 );
               },
             ),
-            SizedBox(height: 16),
-            TextFormField(
+            const SizedBox(height: 12),
+
+            // Date picker
+            TextField(
+              controller: _dateController,
               decoration: InputDecoration(
-                labelText: 'Дата',
-                border: OutlineInputBorder(),
+                labelText: 'Срок выполнения (дата)',
+                hintText: 'Выберите дату',
+                suffixIcon: const Icon(Icons.calendar_today_rounded, size: 18),
+                filled: true,
+                fillColor: AppTheme.surfaceBackground,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: BorderSide(color: AppTheme.dividerColor),
+                ),
               ),
               readOnly: true,
               onTap: _selectDate,
-              controller: TextEditingController(
-                text: selectedDate != null 
-                  ? '${selectedDate!.day}.${selectedDate!.month}.${selectedDate!.year}'
-                  : '',
-              ),
             ),
-            SizedBox(height: 16),
+            const SizedBox(height: 16),
+
+            // Note text
             TextField(
               controller: _textController,
               decoration: InputDecoration(
-                labelText: 'Текст заметки',
-                border: OutlineInputBorder(),
+                labelText: 'Текст заметки / задание',
+                hintText: 'Что нужно сделать...',
+                filled: true,
+                fillColor: AppTheme.surfaceBackground,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: BorderSide(color: AppTheme.dividerColor),
+                ),
               ),
               maxLines: 3,
               keyboardType: TextInputType.multiline,
               textInputAction: TextInputAction.newline,
             ),
-            SizedBox(height: 20),
+            const SizedBox(height: 24),
+
+            // Action buttons
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: Text('Отмена'),
+                Expanded(
+                  child: OutlinedButton(
+                    style: OutlinedButton.styleFrom(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('Отмена'),
+                  ),
                 ),
-                ElevatedButton(
-                  onPressed: _canSave() ? () {
-                    FocusScope.of(context).unfocus();
-                    _saveNote();
-                  } : null,
-                  child: Text('Сохранить'),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.primaryAccent,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                    onPressed: _canSave()
+                        ? () {
+                            FocusScope.of(context).unfocus();
+                            _saveNote();
+                          }
+                        : null,
+                    child: const Text('Создать'),
+                  ),
                 ),
               ],
             ),
@@ -112,104 +225,69 @@ class _CreateNoteDialogState extends State<CreateNoteDialog> {
   }
 
   bool _canSave() {
-    return selectedSubject != null &&
-           selectedDate != null;
+    final effectiveSubject =
+        _isCustomSubject ? _customSubjectController.text.trim() : selectedSubject;
+    return effectiveSubject != null &&
+        effectiveSubject.isNotEmpty &&
+        selectedDate != null;
   }
 
   void _selectDate() async {
-    if (selectedSubject == null) return;
-    
-    final appState = Provider.of<AppState>(context, listen: false);
-    final availableDates = _getAvailableDates(selectedSubject!, appState.schedule);
-    
-    final date = await showDatePicker(
+    final now = DateTime.now();
+    final picked = await showDatePicker(
       context: context,
-      initialDate: availableDates.isNotEmpty ? availableDates.first : DateTime.now(),
-      firstDate: DateTime.now(),
-      lastDate: DateTime.now().add(Duration(days: 365)),
-      locale: Locale('ru', 'RU'),
-      selectableDayPredicate: (date) => availableDates.any((d) => 
-        d.year == date.year && d.month == date.month && d.day == date.day
-      ),
+      initialDate: selectedDate ?? now,
+      firstDate: now.subtract(const Duration(days: 30)),
+      lastDate: now.add(const Duration(days: 365)),
+      locale: const Locale('ru', 'RU'),
     );
-    if (date != null) {
+
+    if (picked != null) {
       setState(() {
-        selectedDate = date;
+        selectedDate = picked;
+        _dateController.text =
+            '${picked.day.toString().padLeft(2, '0')}.${picked.month.toString().padLeft(2, '0')}.${picked.year}';
       });
     }
-  }
-  
-  List<DateTime> _getAvailableDates(String subject, schedule) {
-    final dates = <DateTime>[];
-    
-    if (schedule?.days != null) {
-      for (final daySchedule in schedule.days) {
-        final hasSubject = daySchedule.lessons.any((lesson) => lesson.disc == subject);
-        if (hasSubject) {
-          try {
-            final parts = daySchedule.date.split('.');
-            if (parts.length == 3) {
-              final day = int.parse(parts[0]);
-              final month = int.parse(parts[1]);
-              final year = int.parse(parts[2]);
-              final date = DateTime(year, month, day);
-              if (date.isAfter(DateTime.now().subtract(Duration(days: 1)))) {
-                dates.add(date);
-              }
-            }
-          } catch (e) {
-            // ignore invalid dates
-          }
-        }
-      }
-    }
-    
-    return dates;
   }
 
   void _saveNote() {
     if (!_canSave()) return;
-    
+
+    final effectiveSubject =
+        _isCustomSubject ? _customSubjectController.text.trim() : selectedSubject!;
+
     final appState = Provider.of<AppState>(context, listen: false);
-    final dateStr = '${selectedDate!.day.toString().padLeft(2, '0')}.${selectedDate!.month.toString().padLeft(2, '0')}.${selectedDate!.year}';
-    
+    final dateStr =
+        '${selectedDate!.day.toString().padLeft(2, '0')}.${selectedDate!.month.toString().padLeft(2, '0')}.${selectedDate!.year}';
+
+    String endLessonTime = '09:00';
     try {
-      final daySchedule = appState.schedule?.days.firstWhere(
-        (day) => day.date == dateStr,
-      );
-      
-      final lesson = daySchedule?.lessons.firstWhere(
-        (l) => l.disc == selectedSubject,
-      );
-      
-      if (lesson != null) {
-        final note = Note(
-          id: DateTime.now().millisecondsSinceEpoch.toString(),
-          disc: selectedSubject!,
-          text: _textController.text.isEmpty ? 'Пустая заметка' : _textController.text,
-          endDate: selectedDate!,
-          endLessonTime: lesson.time.split('-')[0].trim(),
-          createdAt: DateTime.now(),
-        );
+      final daySchedule = appState.schedule?.days
+          .where((day) => day.date == dateStr)
+          .firstOrNull;
 
-        Provider.of<NotesProvider>(context, listen: false).saveNote(note);
-        Navigator.pop(context);
+      final lesson = daySchedule?.lessons
+          .where((l) => l.disc == effectiveSubject)
+          .firstOrNull;
+
+      if (lesson != null && lesson.time.isNotEmpty) {
+        endLessonTime = lesson.time.split('-')[0].trim();
       }
-    } catch (e) {
-      // ignore
-    }
-  }
+    } catch (_) {}
 
-  String _getDayName(int weekday) {
-    switch (weekday) {
-      case 1: return 'Понедельник';
-      case 2: return 'Вторник';
-      case 3: return 'Среда';
-      case 4: return 'Четверг';
-      case 5: return 'Пятница';
-      case 6: return 'Суббота';
-      case 7: return 'Воскресенье';
-      default: return 'Понедельник';
-    }
+    final note = Note(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      disc: effectiveSubject,
+      text: _textController.text.trim().isEmpty
+          ? 'Заметка без текста'
+          : _textController.text.trim(),
+      endDate: selectedDate!,
+      endLessonTime: endLessonTime,
+      createdAt: DateTime.now(),
+    );
+
+    Provider.of<NotesProvider>(context, listen: false).saveNote(note);
+    Navigator.pop(context);
   }
 }

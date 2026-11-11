@@ -5,70 +5,94 @@ class LocalStorageService {
   static const String _scheduleBox = 'schedule';
   static const String _settingsBox = 'settings';
 
+  Future<Box<FullSchedule>> _getScheduleBox() async {
+    if (Hive.isBoxOpen(_scheduleBox)) {
+      return Hive.box<FullSchedule>(_scheduleBox);
+    }
+    return await Hive.openBox<FullSchedule>(_scheduleBox);
+  }
+
+  Future<Box> _getSettingsBox() async {
+    if (Hive.isBoxOpen(_settingsBox)) {
+      return Hive.box(_settingsBox);
+    }
+    return await Hive.openBox(_settingsBox);
+  }
+
   Future<void> saveSchedule(FullSchedule schedule) async {
-    print('LocalStorage: Начинаю сохранение расписания...');
     try {
-    final box = await Hive.openBox<FullSchedule>(_scheduleBox);
-      print('LocalStorage: Box открыт, сохраняю расписание...');
-    await box.put('current_schedule', schedule);
-      print('LocalStorage: Расписание сохранено успешно');
-      await box.close();
-      print('LocalStorage: Box закрыт');
+      final box = await _getScheduleBox();
+      await box.put('current_schedule', schedule);
     } catch (e) {
-      print('LocalStorage: Ошибка сохранения расписания: $e');
-      throw e;
+      // Reopen box if it was corrupted/closed
+      final box = await Hive.openBox<FullSchedule>(_scheduleBox);
+      await box.put('current_schedule', schedule);
     }
   }
 
   Future<FullSchedule?> getSchedule() async {
-    print('LocalStorage: Получаю кэшированное расписание...');
     try {
-    final box = await Hive.openBox<FullSchedule>(_scheduleBox);
-      final schedule = box.get('current_schedule');
-      print('LocalStorage: Расписание получено из кэша: ${schedule != null ? "есть" : "нет"}');
-      await box.close();
-      return schedule;
+      final box = await _getScheduleBox();
+      return box.get('current_schedule');
     } catch (e) {
-      print('LocalStorage: Ошибка получения расписания: $e');
-      throw e;
+      try {
+        final box = await Hive.openBox<FullSchedule>(_scheduleBox);
+        return box.get('current_schedule');
+      } catch (_) {
+        return null;
+      }
     }
   }
 
+  Future<DateTime?> getLastUpdated() async {
+    final schedule = await getSchedule();
+    return schedule?.lastUpdated;
+  }
+
   Future<void> saveGroupInfo(int groupId, String groupName) async {
-    final box = await Hive.openBox(_settingsBox);
+    final box = await _getSettingsBox();
     await box.put('group_id', groupId);
     await box.put('group_name', groupName);
   }
 
   Future<int?> getGroupId() async {
-    final box = await Hive.openBox(_settingsBox);
+    final box = await _getSettingsBox();
     return box.get('group_id');
   }
 
   Future<String?> getGroupName() async {
-    final box = await Hive.openBox(_settingsBox);
+    final box = await _getSettingsBox();
     return box.get('group_name');
   }
 
-  Future<bool> needsUpdate() async {
+  /// Проверяет, требуется ли обновление кэша.
+  /// Расписание считается устаревшим, если:
+  /// 1. Кэша нет
+  /// 2. Наступил новый день
+  /// 3. С момента последнего обновления прошло более [maxAge] (по умолчанию 3 часа)
+  Future<bool> needsUpdate({Duration maxAge = const Duration(hours: 3)}) async {
     final schedule = await getSchedule();
     if (schedule == null) return true;
 
     final now = DateTime.now();
     final lastUpdate = schedule.lastUpdated;
-    
-    // Check if it's a new day (daily update)
+
+    // Проверяем смену календарного дня
     final isSameDay = now.year == lastUpdate.year &&
-                     now.month == lastUpdate.month &&
-                     now.day == lastUpdate.day;
-    
-    return !isSameDay;
+        now.month == lastUpdate.month &&
+        now.day == lastUpdate.day;
+
+    if (!isSameDay) return true;
+
+    // Проверяем давность кэша в течение дня
+    final age = now.difference(lastUpdate);
+    return age > maxAge;
   }
-  
+
   Future<void> clearAll() async {
-    final scheduleBox = await Hive.openBox<FullSchedule>(_scheduleBox);
-    final settingsBox = await Hive.openBox(_settingsBox);
-    
+    final scheduleBox = await _getScheduleBox();
+    final settingsBox = await _getSettingsBox();
+
     await scheduleBox.clear();
     await settingsBox.clear();
   }

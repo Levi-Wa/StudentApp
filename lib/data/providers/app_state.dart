@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/full_schedule.dart';
 import '../models/day_schedule.dart';
-import '../models/lesson.dart';
 import '../models/group.dart';
 import '../repositories/schedule_repository.dart';
 import '../services/notification_service.dart';
@@ -13,416 +12,466 @@ class AppState extends ChangeNotifier {
   List<Group> _allGroups = [];
   List<Group> _filteredGroups = [];
   bool _isLoading = false;
+  bool _isRefreshing = false;
   String? _selectedDay;
+  String? _selectedDateStr;
+  String? _currentGroupName;
+  int? _currentGroupId;
+  DateTime? _lastUpdated;
+  String? _lastSyncError;
   bool _initialized = false;
+
+  late DateTime _selectedWeekStart;
+
+  AppState() {
+    _selectedWeekStart = getMondayOfWeek(DateTime.now());
+  }
 
   FullSchedule? get schedule => _schedule;
   List<Group> get groups => _filteredGroups;
   bool get isLoading => _isLoading;
+  bool get isRefreshing => _isRefreshing;
   String? get selectedDay => _selectedDay;
-  
-  List<String> get formEduOptions => _allGroups.map((g) => g.formEdu).toSet().toList();
-  
+  String? get selectedDateStr => _selectedDateStr;
+  String? get currentGroupName => _currentGroupName;
+  int? get currentGroupId => _currentGroupId;
+  DateTime? get lastUpdated => _lastUpdated;
+  String? get lastSyncError => _lastSyncError;
+  DateTime get selectedWeekStart => _selectedWeekStart;
+
+  static DateTime normalizeDate(DateTime dt) =>
+      DateTime(dt.year, dt.month, dt.day);
+
+  static DateTime getMondayOfWeek(DateTime dt) {
+    final clean = normalizeDate(dt);
+    return clean.subtract(Duration(days: clean.weekday - 1));
+  }
+
+  List<String> get formEduOptions =>
+      _allGroups.map((g) => g.formEdu).where((e) => e.isNotEmpty).toSet().toList();
+
   List<String> getCourseOptions(String? formEdu) {
     if (formEdu == null) return [];
     return _allGroups
         .where((g) => g.formEdu == formEdu)
         .map((g) => g.course.toString())
         .toSet()
-        .toList();
+        .toList()
+      ..sort();
   }
-  
+
   void filterGroups(String? formEdu, String? course) {
     final newFiltered = <Group>[];
     if (formEdu != null && course != null) {
-      newFiltered.addAll(_allGroups
-          .where((g) => g.formEdu == formEdu && g.course.toString() == course));
+      newFiltered.addAll(_allGroups.where(
+          (g) => g.formEdu == formEdu && g.course.toString() == course));
+    } else if (formEdu != null) {
+      newFiltered.addAll(_allGroups.where((g) => g.formEdu == formEdu));
     }
 
-    if (_filteredGroups.length != newFiltered.length ||
-        !_filteredGroups.every((group) => newFiltered.contains(group))) {
-      _filteredGroups = newFiltered;
-      notifyListeners();
-    }
+    _filteredGroups = newFiltered;
+    notifyListeners();
   }
 
   Future<void> loadGroups() async {
-    _isLoading = true;
-    notifyListeners();
-
     try {
       _allGroups = await _repository.getGroups();
-    } catch (e) {
-      print('Error loading groups: $e');
+    } catch (_) {
+      // Group loading error handled gracefully
     }
-
-    _isLoading = false;
-    notifyListeners();
   }
 
-  Future<void> loadSchedule(int groupId, String groupName) async {
+  Future<void> loadSchedule(int groupId, String groupName,
+      {bool forceUpdate = false}) async {
     _isLoading = true;
+    _lastSyncError = null;
     notifyListeners();
 
     try {
       await _repository.saveGroupSelection(groupId, groupName);
+      _currentGroupId = groupId;
+      _currentGroupName = groupName;
 
-      _schedule = await _repository.getSchedule(groupId);
+      _schedule = await _repository.getSchedule(groupId, forceUpdate: forceUpdate);
+      _lastUpdated = await _repository.getLastUpdated() ?? DateTime.now();
 
-      if (_schedule != null) {
-        if (_schedule!.days.isNotEmpty) {
-          final today = DateTime.now();
-          final todayName = _getDayName(today.weekday);
-
-          final todaySchedule = _schedule!.days.firstWhere(
-            (day) => day.dayOfWeek == todayName,
-            orElse: () => _schedule!.days.first,
-          );
-
-          _selectedDay = todaySchedule.dayOfWeek;
-        }
-      }
+      _updateSelectedDayForCurrentSchedule();
+      _scheduleUpcomingLessonsNotifications();
     } catch (e) {
-      throw e;
+      _lastSyncError = e.toString();
+      rethrow;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
     }
-
-    _isLoading = false;
   }
 
-  void notifyScheduleLoaded() {
+  /// Принудительное обновление расписания с сервера (Pull-to-refresh или кнопка)
+  Future<bool> forceUpdateSchedule() async {
+    final groupId = _currentGroupId ?? await _repository.getSavedGroupId();
+    final groupName = _currentGroupName ?? await _repository.getSavedGroupName();
+
+    if (groupId == null || groupName == null) return false;
+
+    _isRefreshing = true;
+    _lastSyncError = null;
     notifyListeners();
+
+    try {
+      final oldSchedule = _schedule;
+      final freshSchedule =
+          await _repository.getSchedule(groupId, forceUpdate: true);
+
+      _schedule = freshSchedule;
+      _lastUpdated = DateTime.now();
+
+      await _checkScheduleChanges(oldSchedule, _schedule);
+      _updateSelectedDayForCurrentSchedule();
+      _scheduleUpcomingLessonsNotifications();
+
+      _isRefreshing = false;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _lastSyncError = e.toString();
+      _isRefreshing = false;
+      notifyListeners();
+      return false;
+    }
   }
 
-  void selectDay(String day) {
+  void selectDay(String day, {String? dateStr}) {
     _selectedDay = day;
+    if (dateStr != null) {
+      _selectedDateStr = dateStr;
+    } else {
+      final match = currentWeekDays.where((d) => d.dayOfWeek == day).firstOrNull;
+      _selectedDateStr = match?.date;
+    }
     notifyListeners();
   }
 
-  DateTime _selectedWeekStart = DateTime.now().subtract(Duration(days: DateTime.now().weekday - 1));
-  
-  DateTime get selectedWeekStart => _selectedWeekStart;
-  
   void selectWeek(DateTime weekStart) {
-    _selectedWeekStart = weekStart;
-    // Обновляем выбранный день для новой недели
-    if (_schedule != null && _schedule!.days.isNotEmpty) {
-      final weekDays = currentWeekDays;
-      if (weekDays.isNotEmpty) {
+    _selectedWeekStart = getMondayOfWeek(weekStart);
+    final weekDays = currentWeekDays;
+    if (weekDays.isNotEmpty) {
+      // Если выбранный день есть на этой неделе — сохраняем его
+      final match = weekDays.where((d) => d.dayOfWeek == _selectedDay).firstOrNull;
+      if (match != null) {
+        _selectedDay = match.dayOfWeek;
+        _selectedDateStr = match.date;
+      } else {
         _selectedDay = weekDays.first.dayOfWeek;
+        _selectedDateStr = weekDays.first.date;
       }
     }
     notifyListeners();
   }
-  
-  List<DaySchedule> _cachedWeekDays = [];
-  DateTime? _lastWeekStart;
-  FullSchedule? _lastSchedule;
-  
+
+  void nextWeek() {
+    selectWeek(_selectedWeekStart.add(const Duration(days: 7)));
+  }
+
+  void previousWeek() {
+    selectWeek(_selectedWeekStart.subtract(const Duration(days: 7)));
+  }
+
+  void goToToday() {
+    final now = DateTime.now();
+    _selectedWeekStart = getMondayOfWeek(now);
+    _updateSelectedDayForCurrentSchedule();
+    notifyListeners();
+  }
+
+  /// Полные 7 дней выбранной недели (Пн-Вс, включая Субботу!)
   List<DaySchedule> get currentWeekDays {
-    // Используем кэширование для оптимизации
     if (_schedule == null || _schedule!.days.isEmpty) {
-      _cachedWeekDays = [];
-      return _cachedWeekDays;
+      return [];
     }
 
-    // Если неделя и расписание не изменились, возвращаем кэш
-    if (_selectedWeekStart == _lastWeekStart && _schedule == _lastSchedule) {
-      return _cachedWeekDays;
-    }
+    final monday = normalizeDate(_selectedWeekStart);
+    final sunday =
+        monday.add(const Duration(days: 6, hours: 23, minutes: 59, seconds: 59));
 
-    // Обновляем кэш
-    _lastWeekStart = _selectedWeekStart;
-    _lastSchedule = _schedule;
-    
-    final endOfWeek = _selectedWeekStart.add(Duration(days: 4)); // Пн-Пт
-    
-    _cachedWeekDays = _schedule!.days.where((day) {
+    return _schedule!.days.where((day) {
       try {
         final parts = day.date.split('.');
         if (parts.length == 3) {
-          final dayDate = DateTime(int.parse(parts[2]), int.parse(parts[1]), int.parse(parts[0]));
-          return dayDate.isAfter(_selectedWeekStart.subtract(Duration(days: 1))) && 
-                 dayDate.isBefore(endOfWeek.add(Duration(days: 1)));
+          final dayDate = DateTime(
+            int.parse(parts[2]),
+            int.parse(parts[1]),
+            int.parse(parts[0]),
+          );
+          return !dayDate.isBefore(monday) && !dayDate.isAfter(sunday);
         }
-      } catch (e) {
+      } catch (_) {
         return false;
       }
       return false;
     }).toList();
+  }
 
-    return _cachedWeekDays;
+  void _updateSelectedDayForCurrentSchedule() {
+    if (_schedule == null || _schedule!.days.isEmpty) return;
+
+    final now = DateTime.now();
+    final todayStr =
+        '${now.day.toString().padLeft(2, '0')}.${now.month.toString().padLeft(2, '0')}.${now.year}';
+    final todayName = _getDayName(now.weekday);
+
+    final weekDays = currentWeekDays;
+    if (weekDays.isEmpty) {
+      _selectedDay = todayName;
+      _selectedDateStr = todayStr;
+      return;
+    }
+
+    // Ищем сегодняшний день на текущей неделе
+    final todayInWeek = weekDays.where((d) => d.date == todayStr).firstOrNull;
+    if (todayInWeek != null) {
+      _selectedDay = todayInWeek.dayOfWeek;
+      _selectedDateStr = todayInWeek.date;
+      return;
+    }
+
+    // Если сегодня выходной или пары нет, выбираем совпадающий день недели или первый доступный
+    final matchDay =
+        weekDays.where((d) => d.dayOfWeek == todayName).firstOrNull;
+    if (matchDay != null) {
+      _selectedDay = matchDay.dayOfWeek;
+      _selectedDateStr = matchDay.date;
+    } else {
+      _selectedDay = weekDays.first.dayOfWeek;
+      _selectedDateStr = weekDays.first.date;
+    }
   }
 
   String _getDayName(int weekday) {
     switch (weekday) {
-      case 1: return 'Понедельник';
-      case 2: return 'Вторник';
-      case 3: return 'Среда';
-      case 4: return 'Четверг';
-      case 5: return 'Пятница';
-      case 6: return 'Суббота';
-      case 7: return 'Воскресенье';
-      default: return 'Понедельник';
+      case 1:
+        return 'Понедельник';
+      case 2:
+        return 'Вторник';
+      case 3:
+        return 'Среда';
+      case 4:
+        return 'Четверг';
+      case 5:
+        return 'Пятница';
+      case 6:
+        return 'Суббота';
+      case 7:
+        return 'Воскресенье';
+      default:
+        return 'Понедельник';
     }
   }
 
   Future<bool> hasSelectedGroup() async {
     final groupId = await _repository.getSavedGroupId();
-    final groupName = await _repository.getSavedGroupName();
-    print('AppState: hasSelectedGroup - groupId: $groupId, groupName: $groupName');
     return groupId != null;
   }
 
   Future<void> initializeApp() async {
-    print('AppState: === НАЧАЛО ИНИЦИАЛИЗАЦИИ ===');
-    if (_initialized) {
-      print('AppState: Уже инициализирован, пропускаю');
-      return;
-    }
-    
+    if (_initialized) return;
+
     _isLoading = true;
     notifyListeners();
-    
+
     try {
-      // Загружаем сохраненную группу и расписание
-      print('AppState: Загружаю сохраненную группу...');
       final groupId = await _repository.getSavedGroupId();
       final groupName = await _repository.getSavedGroupName();
-      print('AppState: hasSelectedGroup - groupId: $groupId, groupName: $groupName');
-      
-      if (groupId != null && groupName != null) {
-        print('AppState: Группа найдена, загружаю кэшированное расписание...');
-        // Загружаем кэшированное расписание
-        _schedule = await _repository.getSchedule(groupId);
-        
-        if (_schedule != null && _schedule!.days.isNotEmpty) {
-          print('AppState: Кэшированное расписание загружено, дней: ${_schedule!.days.length}');
-          final today = DateTime.now();
-          final todayName = _getDayName(today.weekday);
-          
-          final todaySchedule = _schedule!.days.firstWhere(
-            (day) => day.dayOfWeek == todayName,
-            orElse: () => _schedule!.days.first,
-          );
-          
-          _selectedDay = todaySchedule.dayOfWeek;
-          print('AppState: Выбран день: $_selectedDay');
 
-          // Временно отключаем планирование уведомлений для тестирования
-          // await _scheduleUpcomingLessonsNotifications();
-          print('AppState: Планирование уведомлений в initializeApp временно отключено');
-        } else {
-          print('AppState: Кэшированное расписание пустое или null, schedule: $_schedule');
-        }
+      if (groupId != null && groupName != null) {
+        _currentGroupId = groupId;
+        _currentGroupName = groupName;
+
+        // 1. Мгновенно загружаем кэшированное расписание для быстрого старта (0 мс ожидания)
+        _schedule = await _repository.getSchedule(groupId, forceUpdate: false);
+        _lastUpdated = await _repository.getLastUpdated();
+        _updateSelectedDayForCurrentSchedule();
+
+        _initialized = true;
+        _isLoading = false;
+        notifyListeners();
+
+        // 2. В фоне обновляем расписание с сервера, если кэш устарел
+        _backgroundSync(groupId, groupName);
       } else {
-        print('AppState: Сохраненная группа не найдена');
+        _initialized = true;
+        _isLoading = false;
+        notifyListeners();
       }
 
-      print('AppState: Загружаю группы...');
       await loadGroups();
+    } catch (_) {
+      _isLoading = false;
       _initialized = true;
-      print('AppState: Инициализация завершена успешно');
-    } catch (e) {
-      print('AppState: Ошибка инициализации: $e');
+      notifyListeners();
     }
-    _isLoading = false;
-    notifyListeners();
   }
-  
-  Future<void> forceUpdateSchedule() async {
-    final groupId = await _repository.getSavedGroupId();
-    final groupName = await _repository.getSavedGroupName();
-    
-    if (groupId != null && groupName != null) {
+
+  Future<void> _backgroundSync(int groupId, String groupName) async {
+    try {
       final oldSchedule = _schedule;
-      await loadSchedule(groupId, groupName);
-      await _checkScheduleChanges(oldSchedule, _schedule);
+      final freshSchedule =
+          await _repository.getSchedule(groupId, forceUpdate: false);
+
+      if (freshSchedule != oldSchedule) {
+        _schedule = freshSchedule;
+        _lastUpdated = await _repository.getLastUpdated() ?? DateTime.now();
+        await _checkScheduleChanges(oldSchedule, _schedule);
+        notifyListeners();
+      }
+    } catch (_) {
+      // Background sync silently fails if offline
     }
   }
-  
-  Future<void> _checkScheduleChanges(FullSchedule? oldSchedule, FullSchedule? newSchedule) async {
+
+  Future<void> _checkScheduleChanges(
+      FullSchedule? oldSchedule, FullSchedule? newSchedule) async {
     if (oldSchedule == null || newSchedule == null) return;
-    
+
     bool hasChanges = false;
     String changeMessage = '';
-    
-    // Проверка изменений по количеству дней
+
     if (oldSchedule.days.length != newSchedule.days.length) {
       hasChanges = true;
-      changeMessage = 'Изменено количество дней в расписании';
+      changeMessage = 'Изменилось расписание занятий';
     } else {
-      // Проверка изменений в занятиях
       for (var newDay in newSchedule.days) {
-        final oldDay = oldSchedule.days.firstWhere(
-          (d) => d.date == newDay.date,
-          orElse: () => DaySchedule(date: '', dayOfWeek: '', lessons: []),
-        );
-        
-        if (oldDay.date.isEmpty) {
+        final oldDay = oldSchedule.days.where((d) => d.date == newDay.date).firstOrNull;
+
+        if (oldDay == null) {
           hasChanges = true;
-          changeMessage = 'Добавлен новый день в расписании';
+          changeMessage = 'Обновлено расписание на ${newDay.dayOfWeek}';
           break;
         }
-        
+
         if (oldDay.lessons.length != newDay.lessons.length) {
           hasChanges = true;
-          changeMessage = 'Изменено количество занятий на ${newDay.dayOfWeek}';
+          changeMessage = 'Изменилось количество пар на ${newDay.dayOfWeek}';
           break;
         }
-        
-        // Проверка изменений в конкретных занятиях
+
         for (var newLesson in newDay.lessons) {
-          final oldLesson = oldDay.lessons.firstWhere(
-            (l) => l.time == newLesson.time && l.disc == newLesson.disc,
-            orElse: () => Lesson(
-              time: '',
-              disc: '',
-              prepod: '',
-              aud: '',
-              vidZan: '',
-              dayOfWeek: '',
-            ),
-          );
-          
-          if (oldLesson.time.isEmpty || 
-              oldLesson.aud != newLesson.aud || 
-              oldLesson.prepod != newLesson.prepod) {
+          final oldLesson = oldDay.lessons
+              .where((l) => l.time == newLesson.time && l.disc == newLesson.disc)
+              .firstOrNull;
+
+          if (oldLesson == null ||
+              oldLesson.aud != newLesson.aud ||
+              oldLesson.prepod != newLesson.prepod ||
+              oldLesson.vidZan != newLesson.vidZan) {
             hasChanges = true;
             changeMessage = 'Изменения в расписании на ${newDay.dayOfWeek}';
             break;
           }
         }
-        
+
         if (hasChanges) break;
       }
     }
-    
+
     if (hasChanges) {
-      await _sendScheduleChangeNotification('Изменение в расписании', changeMessage);
-      // Перепланируем уведомления о занятиях
-      await _scheduleUpcomingLessonsNotifications();
+      await NotificationService.scheduleScheduleNotification(
+        'Изменение в расписании',
+        changeMessage,
+        DateTime.now().add(const Duration(seconds: 1)),
+      );
     }
   }
-  
-  Future<void> _sendScheduleChangeNotification(String title, String body) async {
-    await NotificationService.scheduleScheduleNotification(
-      title,
-      body,
-      DateTime.now().add(Duration(seconds: 1)), // Немедленно
-    );
-  }
-  
+
   Future<void> _scheduleUpcomingLessonsNotifications() async {
     if (_schedule == null) return;
 
     try {
-      // Отменяем старые уведомления о занятиях
       await NotificationService.cancelAllLessonNotifications();
-    } catch (e) {
-      print('Ошибка при отмене уведомлений о занятиях: $e');
-      // Продолжаем работу несмотря на ошибку
-    }
-    
+    } catch (_) {}
+
     final now = DateTime.now();
     final period = await NotificationService.getNotificationPeriod();
-    
+
     try {
-      // Планируем уведомления на ближайшие дни (в зависимости от периода)
       for (var day in _schedule!.days) {
-        try {
-          final parts = day.date.split('.');
-          if (parts.length == 3) {
-            final dayDate = DateTime(
-              int.parse(parts[2]),
-              int.parse(parts[1]),
-              int.parse(parts[0]),
-            );
+        final parts = day.date.split('.');
+        if (parts.length == 3) {
+          final dayDate = DateTime(
+            int.parse(parts[2]),
+            int.parse(parts[1]),
+            int.parse(parts[0]),
+          );
 
-            // Планируем только для будущих дней в пределах периода
-            if (dayDate.isAfter(now.subtract(Duration(days: 1))) &&
-                dayDate.isBefore(now.add(Duration(days: period + 1)))) {
+          if (dayDate.isAfter(now.subtract(const Duration(days: 1))) &&
+              dayDate.isBefore(now.add(Duration(days: period + 1)))) {
+            for (var lesson in day.lessons) {
+              final lessonTime = _parseLessonTime(lesson.time, dayDate);
+              if (lessonTime != null && lessonTime.isAfter(now)) {
+                final notificationTime =
+                    lessonTime.subtract(const Duration(minutes: 15));
+                if (notificationTime.isAfter(now)) {
+                  final notificationId =
+                      NotificationService.generateLessonNotificationId(
+                    day.date,
+                    lesson.time,
+                  );
 
-              for (var lesson in day.lessons) {
-                try {
-                  final lessonTime = _parseLessonTime(lesson.time, dayDate);
-
-                  if (lessonTime != null && lessonTime.isAfter(now)) {
-                    // Планируем уведомление за 15 минут до начала занятия
-                    final notificationTime = lessonTime.subtract(Duration(minutes: 15));
-
-                    if (notificationTime.isAfter(now)) {
-                      final notificationId = NotificationService.generateLessonNotificationId(
-                        day.date,
-                        lesson.time,
-                      );
-
-                      await NotificationService.scheduleLessonNotification(
-                        'Скоро занятие',
-                        '${lesson.disc}\n${lesson.time}, ауд. ${lesson.aud}',
-                        notificationTime,
-                        notificationId: notificationId,
-                      );
-                    }
-                  }
-                } catch (e) {
-                  print('Ошибка планирования уведомления для занятия ${lesson.disc}: $e');
+                  await NotificationService.scheduleLessonNotification(
+                    'Скоро пара',
+                    '${lesson.disc}\n${lesson.time}, ауд. ${lesson.aud}',
+                    notificationTime,
+                    notificationId: notificationId,
+                  );
                 }
               }
             }
           }
-        } catch (e) {
-          print('Ошибка планирования уведомления для дня ${day.date}: $e');
         }
       }
-    } catch (e) {
-      print('Критическая ошибка при планировании уведомлений о занятиях: $e');
-    }
+    } catch (_) {}
   }
-  
+
   DateTime? _parseLessonTime(String timeStr, DateTime dayDate) {
     try {
       final parts = timeStr.split('-');
       if (parts.isNotEmpty) {
         final timeParts = parts[0].trim().split(':');
         if (timeParts.length == 2) {
-          final hours = int.parse(timeParts[0]);
-          final minutes = int.parse(timeParts[1]);
-          
           return DateTime(
             dayDate.year,
             dayDate.month,
             dayDate.day,
-            hours,
-            minutes,
+            int.parse(timeParts[0]),
+            int.parse(timeParts[1]),
           );
         }
       }
-    } catch (e) {
-      print('Ошибка парсинга времени: $e');
-    }
+    } catch (_) {}
     return null;
   }
-  
+
   Future<void> resetApp() async {
-    // Отменяем все уведомления при сбросе
     await NotificationService.cancelAllNotifications();
-    
     await _repository.clearAllData();
     _schedule = null;
     _selectedDay = null;
+    _selectedDateStr = null;
+    _currentGroupId = null;
+    _currentGroupName = null;
+    _lastUpdated = null;
     _initialized = false;
     notifyListeners();
   }
-  
+
   Future<String?> getCurrentGroupName() async {
-    return await _repository.getSavedGroupName();
+    return _currentGroupName ?? await _repository.getSavedGroupName();
   }
 
   Future<int?> getSavedGroupId() async {
-    return await _repository.getSavedGroupId();
+    return _currentGroupId ?? await _repository.getSavedGroupId();
   }
 
   Future<String?> getSavedGroupName() async {
-    return await _repository.getSavedGroupName();
+    return _currentGroupName ?? await _repository.getSavedGroupName();
   }
 }

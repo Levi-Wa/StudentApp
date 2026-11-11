@@ -18,8 +18,6 @@ import 'features/note_list/note_page.dart';
 import 'features/settings_list/settings_page.dart';
 import 'theme/app_theme.dart';
 
-
-
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -28,7 +26,7 @@ void main() async {
   Hive.registerAdapter(DayScheduleAdapter());
   Hive.registerAdapter(FullScheduleAdapter());
   Hive.registerAdapter(NoteAdapter());
-  
+
   await NotificationService.initialize();
 
   final appState = AppState();
@@ -50,34 +48,36 @@ void main() async {
 class MyApp extends StatelessWidget {
   final AppState appState;
 
-  MyApp({required this.appState});
+  const MyApp({super.key, required this.appState});
 
   @override
   Widget build(BuildContext context) {
     return Consumer<ThemeProvider>(
-        builder: (context, themeProvider, child) {
-          return MaterialApp(
-            title: 'StudentApp',
-            theme: AppTheme.lightTheme,
-            darkTheme: AppTheme.darkTheme,
-            themeMode: themeProvider.isDarkMode ? ThemeMode.dark : ThemeMode.light,
-        localizationsDelegates: [
-          GlobalMaterialLocalizations.delegate,
-          GlobalWidgetsLocalizations.delegate,
-          GlobalCupertinoLocalizations.delegate,
-        ],
-        supportedLocales: [
-          Locale('ru', 'RU'),
-        ],
-        initialRoute: '/',
-        routes: {
-          '/': (context) => StartScreen(),
-          '/home': (context) => SchedulePage(),
-          '/notes': (context) => NotePage(),
-          '/settings': (context) => SettingsPage(),
-        },
-          );
-        },
+      builder: (context, themeProvider, child) {
+        return MaterialApp(
+          title: 'StudentApp',
+          debugShowCheckedModeBanner: false,
+          theme: AppTheme.lightTheme,
+          darkTheme: AppTheme.darkTheme,
+          themeMode:
+              themeProvider.isDarkMode ? ThemeMode.dark : ThemeMode.light,
+          localizationsDelegates: const [
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          supportedLocales: const [
+            Locale('ru', 'RU'),
+          ],
+          initialRoute: '/',
+          routes: {
+            '/': (context) => const StartScreen(),
+            '/home': (context) => const SchedulePage(),
+            '/notes': (context) => const NotePage(),
+            '/settings': (context) => const SettingsPage(),
+          },
+        );
+      },
     );
   }
 }
