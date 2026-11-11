@@ -1,4 +1,4 @@
-package com.criptogise.cryto_coins_list
+package su.ursei.studentapp
 
 import io.flutter.embedding.android.FlutterActivity
 
