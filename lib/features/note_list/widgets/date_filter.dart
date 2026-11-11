@@ -31,8 +31,8 @@ class _DateFilterState extends State<DateFilter> {
 
   void _scrollToToday() {
     if (!_scrollController.hasClients) return;
-    const itemWidth = 62.0;
-    const todayIndex = 14; // Index of today in a 30-day window
+    const itemWidth = 56.0;
+    const todayIndex = 14;
     _scrollController.animateTo(
       todayIndex * itemWidth,
       duration: const Duration(milliseconds: 300),
@@ -40,30 +40,22 @@ class _DateFilterState extends State<DateFilter> {
     );
   }
 
-  String _getMonthAbbr(int month) {
-    const months = [
-      'янв', 'фев', 'мар', 'апр', 'май', 'июн',
-      'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'
-    ];
-    return months[month - 1];
-  }
-
-  String _getDayAbbr(int weekday) {
+  String _getDaySingleLetter(int weekday) {
     switch (weekday) {
       case 1:
-        return 'пн';
+        return 'П';
       case 2:
-        return 'вт';
+        return 'В';
       case 3:
-        return 'ср';
+        return 'С';
       case 4:
-        return 'чт';
+        return 'Ч';
       case 5:
-        return 'пт';
+        return 'П';
       case 6:
-        return 'сб';
+        return 'С';
       case 7:
-        return 'вс';
+        return 'В';
       default:
         return '';
     }
@@ -72,21 +64,27 @@ class _DateFilterState extends State<DateFilter> {
   @override
   Widget build(BuildContext context) {
     final today = DateTime.now();
-    // 30 days: 14 days before today and 15 days after
     final dates = List.generate(
       30,
-      (index) => today.subtract(const Duration(days: 14)).add(Duration(days: index)),
+      (index) =>
+          today.subtract(const Duration(days: 14)).add(Duration(days: index)),
     );
 
+    final bg = AppTheme.secondaryBg(context);
+    final text = AppTheme.text(context);
+    final subtext = AppTheme.subtext(context);
+    final surface = AppTheme.surface(context);
+    final divider = AppTheme.divider(context);
+
     return Container(
-      height: 70,
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      color: AppTheme.secondaryBackground,
+      height: 78,
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      color: bg,
       child: ListView.builder(
         controller: _scrollController,
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        itemCount: dates.length + 1, // +1 for "Все"
+        padding: const EdgeInsets.symmetric(horizontal: 14),
+        itemCount: dates.length + 1,
         itemBuilder: (context, index) {
           if (index == 0) {
             final isAll = selectedDate == null;
@@ -98,17 +96,13 @@ class _DateFilterState extends State<DateFilter> {
                 widget.onDateSelected(null);
               },
               child: Container(
-                width: 60,
+                width: 52,
                 margin: const EdgeInsets.symmetric(horizontal: 3),
                 decoration: BoxDecoration(
-                  color: isAll
-                      ? AppTheme.primaryAccent
-                      : AppTheme.surfaceBackground,
-                  borderRadius: BorderRadius.circular(10),
+                  color: isAll ? AppTheme.dockActiveAmber : surface,
+                  borderRadius: BorderRadius.circular(14),
                   border: Border.all(
-                    color: isAll
-                        ? AppTheme.primaryAccent
-                        : AppTheme.dividerColor,
+                    color: isAll ? AppTheme.dockActiveAmber : divider,
                   ),
                 ),
                 child: Column(
@@ -116,16 +110,16 @@ class _DateFilterState extends State<DateFilter> {
                   children: [
                     Icon(
                       Icons.all_inclusive_rounded,
-                      size: 18,
-                      color: isAll ? Colors.white : AppTheme.primaryText,
+                      size: 16,
+                      color: isAll ? Colors.black : text,
                     ),
                     const SizedBox(height: 2),
                     Text(
                       'Все',
                       style: GoogleFonts.inter(
                         fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: isAll ? Colors.white : AppTheme.primaryText,
+                        fontWeight: FontWeight.w700,
+                        color: isAll ? Colors.black : text,
                       ),
                     ),
                   ],
@@ -150,56 +144,58 @@ class _DateFilterState extends State<DateFilter> {
               widget.onDateSelected(selectedDate);
             },
             child: Container(
-              width: 54,
+              width: 48,
               margin: const EdgeInsets.symmetric(horizontal: 3),
               decoration: BoxDecoration(
                 color: isSelected
-                    ? AppTheme.primaryAccent
+                    ? AppTheme.dockActiveAmber
                     : (isToday
-                        ? AppTheme.primaryAccent.withOpacity(0.12)
-                        : AppTheme.surfaceBackground),
-                borderRadius: BorderRadius.circular(10),
+                        ? AppTheme.dockActiveAmber.withValues(alpha: 0.12)
+                        : surface),
+                borderRadius: BorderRadius.circular(14),
                 border: Border.all(
                   color: isSelected
-                      ? AppTheme.primaryAccent
+                      ? AppTheme.dockActiveAmber
                       : (isToday
-                          ? AppTheme.primaryAccent.withOpacity(0.5)
-                          : AppTheme.dividerColor),
-                  width: isSelected || isToday ? 1.4 : 0.8,
+                          ? AppTheme.dockActiveAmber.withValues(alpha: 0.5)
+                          : divider),
+                  width: isSelected || isToday ? 1.5 : 1.0,
                 ),
               ),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Text(
-                    _getDayAbbr(date.weekday),
+                    _getDaySingleLetter(date.weekday),
                     style: GoogleFonts.inter(
-                      fontSize: 10,
+                      fontSize: 11,
                       fontWeight: FontWeight.w600,
                       color: isSelected
-                          ? Colors.white.withOpacity(0.9)
+                          ? Colors.black.withValues(alpha: 0.8)
                           : (date.weekday >= 6
                               ? Colors.orange
-                              : AppTheme.secondaryText),
+                              : subtext),
                     ),
                   ),
                   const SizedBox(height: 2),
                   Text(
                     '${date.day}',
                     style: GoogleFonts.inter(
-                      fontSize: 15,
+                      fontSize: 14,
                       fontWeight: FontWeight.w700,
-                      color: isSelected ? Colors.white : AppTheme.primaryText,
+                      color: isSelected ? Colors.black : text,
                     ),
                   ),
-                  Text(
-                    _getMonthAbbr(date.month),
-                    style: GoogleFonts.inter(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w500,
+                  const SizedBox(height: 3),
+                  // Image 1 bottom dot for selected day
+                  Container(
+                    width: 3.5,
+                    height: 3.5,
+                    decoration: BoxDecoration(
                       color: isSelected
-                          ? Colors.white.withOpacity(0.8)
-                          : AppTheme.secondaryText,
+                          ? Colors.black
+                          : (isToday ? AppTheme.dockActiveAmber : Colors.transparent),
+                      shape: BoxShape.circle,
                     ),
                   ),
                 ],

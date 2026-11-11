@@ -33,9 +33,14 @@ class _CreateNoteDialogState extends State<CreateNoteDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final cardBg = AppTheme.secondaryBg(context);
+    final text = AppTheme.text(context);
+    final surface = AppTheme.surface(context);
+    final divider = AppTheme.divider(context);
+
     return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      backgroundColor: AppTheme.secondaryBackground,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      backgroundColor: cardBg,
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(22),
         child: Column(
@@ -47,7 +52,7 @@ class _CreateNoteDialogState extends State<CreateNoteDialog> {
               style: GoogleFonts.inter(
                 fontSize: ResponsiveText.title(context),
                 fontWeight: FontWeight.w700,
-                color: AppTheme.primaryText,
+                color: text,
               ),
               textAlign: TextAlign.center,
             ),
@@ -73,11 +78,14 @@ class _CreateNoteDialogState extends State<CreateNoteDialog> {
                         decoration: InputDecoration(
                           labelText: 'Название предмета / темы',
                           filled: true,
-                          fillColor: AppTheme.surfaceBackground,
+                          fillColor: surface,
                           border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
-                            borderSide:
-                                BorderSide(color: AppTheme.dividerColor),
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(color: divider),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(color: divider),
                           ),
                         ),
                         onChanged: (_) => setState(() {}),
@@ -100,14 +108,18 @@ class _CreateNoteDialogState extends State<CreateNoteDialog> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     DropdownButtonFormField<String>(
-                      value: selectedSubject,
+                      initialValue: selectedSubject,
                       decoration: InputDecoration(
                         labelText: 'Предмет',
                         filled: true,
-                        fillColor: AppTheme.surfaceBackground,
+                        fillColor: surface,
                         border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
-                          borderSide: BorderSide(color: AppTheme.dividerColor),
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: divider),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: divider),
                         ),
                       ),
                       isExpanded: true,
@@ -119,7 +131,7 @@ class _CreateNoteDialogState extends State<CreateNoteDialog> {
                                   overflow: TextOverflow.ellipsis,
                                   style: GoogleFonts.inter(
                                     fontSize: 14,
-                                    color: AppTheme.primaryText,
+                                    color: text,
                                   ),
                                 ),
                               ))
@@ -153,10 +165,14 @@ class _CreateNoteDialogState extends State<CreateNoteDialog> {
                 hintText: 'Выберите дату',
                 suffixIcon: const Icon(Icons.calendar_today_rounded, size: 18),
                 filled: true,
-                fillColor: AppTheme.surfaceBackground,
+                fillColor: surface,
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide(color: AppTheme.dividerColor),
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: divider),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: divider),
                 ),
               ),
               readOnly: true,
@@ -171,10 +187,14 @@ class _CreateNoteDialogState extends State<CreateNoteDialog> {
                 labelText: 'Текст заметки / задание',
                 hintText: 'Что нужно сделать...',
                 filled: true,
-                fillColor: AppTheme.surfaceBackground,
+                fillColor: surface,
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide(color: AppTheme.dividerColor),
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: divider),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: divider),
                 ),
               ),
               maxLines: 3,
@@ -190,7 +210,7 @@ class _CreateNoteDialogState extends State<CreateNoteDialog> {
                   child: OutlinedButton(
                     style: OutlinedButton.styleFrom(
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
+                        borderRadius: BorderRadius.circular(12),
                       ),
                     ),
                     onPressed: () => Navigator.pop(context),
@@ -199,12 +219,12 @@ class _CreateNoteDialogState extends State<CreateNoteDialog> {
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.primaryAccent,
-                      foregroundColor: Colors.white,
+                  child: FilledButton(
+                    style: FilledButton.styleFrom(
+                      backgroundColor: AppTheme.dockActiveAmber,
+                      foregroundColor: Colors.black,
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
+                        borderRadius: BorderRadius.circular(12),
                       ),
                     ),
                     onPressed: _canSave()
@@ -213,7 +233,10 @@ class _CreateNoteDialogState extends State<CreateNoteDialog> {
                             _saveNote();
                           }
                         : null,
-                    child: const Text('Создать'),
+                    child: Text(
+                      'Создать',
+                      style: GoogleFonts.inter(fontWeight: FontWeight.w700),
+                    ),
                   ),
                 ),
               ],

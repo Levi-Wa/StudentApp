@@ -12,18 +12,28 @@ class ThemeProvider extends ChangeNotifier {
     _loadTheme();
   }
 
-  void _loadTheme() async {
-    final box = await Hive.openBox(_themeBox);
-    _isDarkMode = box.get('isDarkMode', defaultValue: false);
-    AppTheme.setDarkMode(_isDarkMode);
-    notifyListeners();
+  void _loadTheme() {
+    if (Hive.isBoxOpen(_themeBox)) {
+      final box = Hive.box(_themeBox);
+      _isDarkMode = box.get('isDarkMode', defaultValue: false);
+      AppTheme.setDarkMode(_isDarkMode);
+    } else {
+      Hive.openBox(_themeBox).then((box) {
+        _isDarkMode = box.get('isDarkMode', defaultValue: false);
+        AppTheme.setDarkMode(_isDarkMode);
+        notifyListeners();
+      });
+    }
   }
 
-  void toggleTheme() async {
+  Future<void> toggleTheme() async {
     _isDarkMode = !_isDarkMode;
     AppTheme.setDarkMode(_isDarkMode);
-    final box = await Hive.openBox(_themeBox);
-    await box.put('isDarkMode', _isDarkMode);
+    // Notify listeners immediately before writing to disk for 0ms lag
     notifyListeners();
+    final box = Hive.isBoxOpen(_themeBox)
+        ? Hive.box(_themeBox)
+        : await Hive.openBox(_themeBox);
+    await box.put('isDarkMode', _isDarkMode);
   }
 }

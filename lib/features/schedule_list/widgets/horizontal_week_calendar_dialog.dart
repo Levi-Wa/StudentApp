@@ -69,8 +69,18 @@ class _HorizontalWeekCalendarDialogState
 
   String _monthShort(int month) {
     const months = [
-      'янв', 'фев', 'мар', 'апр', 'май', 'июн',
-      'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'
+      'янв',
+      'фев',
+      'мар',
+      'апр',
+      'май',
+      'июн',
+      'июл',
+      'авг',
+      'сен',
+      'окт',
+      'ноя',
+      'дек'
     ];
     return months[month - 1];
   }
@@ -93,11 +103,17 @@ class _HorizontalWeekCalendarDialogState
     );
     final now = DateTime.now();
 
+    final cardBg = AppTheme.secondaryBg(context);
+    final text = AppTheme.text(context);
+    final subtext = AppTheme.subtext(context);
+    final surface = AppTheme.surface(context);
+    final divider = AppTheme.divider(context);
+
     return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      backgroundColor: AppTheme.secondaryBackground,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      backgroundColor: cardBg,
       child: Padding(
-        padding: const EdgeInsets.all(18),
+        padding: const EdgeInsets.all(20),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -107,11 +123,12 @@ class _HorizontalWeekCalendarDialogState
                 IconButton(
                   onPressed: () {
                     setState(() {
-                      _weekStart = _weekStart.subtract(const Duration(days: 7));
+                      _weekStart =
+                          _weekStart.subtract(const Duration(days: 7));
                       _selectedDate = _weekStart;
                     });
                   },
-                  icon: Icon(Icons.chevron_left, color: AppTheme.primaryText),
+                  icon: Icon(Icons.chevron_left_rounded, color: text),
                 ),
                 Expanded(
                   child: Column(
@@ -122,7 +139,7 @@ class _HorizontalWeekCalendarDialogState
                         style: GoogleFonts.inter(
                           fontSize: 16,
                           fontWeight: FontWeight.w700,
-                          color: AppTheme.primaryText,
+                          color: text,
                         ),
                       ),
                       const SizedBox(height: 2),
@@ -130,7 +147,7 @@ class _HorizontalWeekCalendarDialogState
                         '${_weekStart.year} год',
                         style: GoogleFonts.inter(
                           fontSize: 12,
-                          color: AppTheme.secondaryText,
+                          color: subtext,
                         ),
                       ),
                     ],
@@ -143,7 +160,7 @@ class _HorizontalWeekCalendarDialogState
                       _selectedDate = _weekStart;
                     });
                   },
-                  icon: Icon(Icons.chevron_right, color: AppTheme.primaryText),
+                  icon: Icon(Icons.chevron_right_rounded, color: text),
                 ),
               ],
             ),
@@ -159,7 +176,7 @@ class _HorizontalWeekCalendarDialogState
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 2),
                     child: InkWell(
-                      borderRadius: BorderRadius.circular(10),
+                      borderRadius: BorderRadius.circular(12),
                       onTap: () {
                         setState(() {
                           _selectedDate = date;
@@ -174,20 +191,22 @@ class _HorizontalWeekCalendarDialogState
                         Navigator.pop(context);
                       },
                       child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        padding: const EdgeInsets.symmetric(vertical: 10),
                         decoration: BoxDecoration(
                           color: isSelected
-                              ? AppTheme.primaryAccent
+                              ? AppTheme.dockActiveAmber
                               : (isToday
-                                  ? AppTheme.primaryAccent.withOpacity(0.12)
-                                  : AppTheme.surfaceBackground),
-                          borderRadius: BorderRadius.circular(10),
+                                  ? AppTheme.dockActiveAmber
+                                      .withValues(alpha: 0.12)
+                                  : surface),
+                          borderRadius: BorderRadius.circular(12),
                           border: Border.all(
                             color: isSelected
-                                ? AppTheme.primaryAccent
+                                ? AppTheme.dockActiveAmber
                                 : (isToday
-                                    ? AppTheme.primaryAccent.withOpacity(0.5)
-                                    : AppTheme.dividerColor),
+                                    ? AppTheme.dockActiveAmber
+                                        .withValues(alpha: 0.5)
+                                    : divider),
                             width: isSelected || isToday ? 1.5 : 0.8,
                           ),
                         ),
@@ -200,10 +219,10 @@ class _HorizontalWeekCalendarDialogState
                                 fontSize: 11,
                                 fontWeight: FontWeight.w600,
                                 color: isSelected
-                                    ? Colors.white
+                                    ? Colors.black
                                     : (date.weekday >= 6
                                         ? Colors.orange
-                                        : AppTheme.secondaryText),
+                                        : subtext),
                               ),
                             ),
                             const SizedBox(height: 4),
@@ -212,9 +231,7 @@ class _HorizontalWeekCalendarDialogState
                               style: GoogleFonts.inter(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w700,
-                                color: isSelected
-                                    ? Colors.white
-                                    : AppTheme.primaryText,
+                                color: isSelected ? Colors.black : text,
                               ),
                             ),
                           ],
@@ -225,7 +242,7 @@ class _HorizontalWeekCalendarDialogState
                 );
               }).toList(),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 18),
 
             // Jump to Today button
             TextButton.icon(
@@ -236,7 +253,7 @@ class _HorizontalWeekCalendarDialogState
               icon: const Icon(Icons.today, size: 18),
               label: const Text('Перейти к текущей неделе'),
               style: TextButton.styleFrom(
-                foregroundColor: AppTheme.primaryAccent,
+                foregroundColor: AppTheme.dockActiveAmber,
               ),
             ),
           ],

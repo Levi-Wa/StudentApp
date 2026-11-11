@@ -24,6 +24,8 @@ dependencies:
   permission_handler: ^11.3.0
   circular_menu: ^4.0.0
   flutter_slidable: ^4.0.3
+  url_launcher: ^6.3.2
+  package_info_plus: ^10.2.2
 
 
 dev_dependencies:

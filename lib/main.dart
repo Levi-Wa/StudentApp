@@ -27,6 +27,7 @@ void main() async {
   Hive.registerAdapter(FullScheduleAdapter());
   Hive.registerAdapter(NoteAdapter());
 
+  await Hive.openBox('theme');
   await NotificationService.initialize();
 
   final appState = AppState();

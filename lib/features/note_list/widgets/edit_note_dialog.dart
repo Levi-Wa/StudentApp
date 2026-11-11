@@ -32,9 +32,15 @@ class _EditNoteDialogState extends State<EditNoteDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final cardBg = AppTheme.secondaryBg(context);
+    final text = AppTheme.text(context);
+    final subtext = AppTheme.subtext(context);
+    final surface = AppTheme.surface(context);
+    final divider = AppTheme.divider(context);
+
     return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      backgroundColor: AppTheme.secondaryBackground,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      backgroundColor: cardBg,
       child: Padding(
         padding: const EdgeInsets.all(22),
         child: Column(
@@ -46,7 +52,7 @@ class _EditNoteDialogState extends State<EditNoteDialog> {
               style: GoogleFonts.inter(
                 fontSize: ResponsiveText.title(context),
                 fontWeight: FontWeight.w700,
-                color: AppTheme.primaryText,
+                color: text,
               ),
               textAlign: TextAlign.center,
             ),
@@ -54,8 +60,8 @@ class _EditNoteDialogState extends State<EditNoteDialog> {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: AppTheme.surfaceBackground,
-                borderRadius: BorderRadius.circular(10),
+                color: surface,
+                borderRadius: BorderRadius.circular(12),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -65,7 +71,7 @@ class _EditNoteDialogState extends State<EditNoteDialog> {
                     style: GoogleFonts.inter(
                       fontSize: ResponsiveText.subtitle(context),
                       fontWeight: FontWeight.w700,
-                      color: AppTheme.primaryText,
+                      color: text,
                     ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
@@ -73,14 +79,13 @@ class _EditNoteDialogState extends State<EditNoteDialog> {
                   const SizedBox(height: 4),
                   Row(
                     children: [
-                      Icon(Icons.event_outlined,
-                          size: 14, color: AppTheme.secondaryText),
+                      Icon(Icons.event_outlined, size: 14, color: subtext),
                       const SizedBox(width: 4),
                       Text(
                         'Срок: ${widget.note.endDate.day.toString().padLeft(2, '0')}.${widget.note.endDate.month.toString().padLeft(2, '0')}.${widget.note.endDate.year} ${widget.note.endLessonTime}',
                         style: GoogleFonts.inter(
                           fontSize: ResponsiveText.small(context),
-                          color: AppTheme.secondaryText,
+                          color: subtext,
                         ),
                       ),
                     ],
@@ -94,10 +99,14 @@ class _EditNoteDialogState extends State<EditNoteDialog> {
               decoration: InputDecoration(
                 labelText: 'Текст заметки',
                 filled: true,
-                fillColor: AppTheme.surfaceBackground,
+                fillColor: surface,
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide(color: AppTheme.dividerColor),
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: divider),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: divider),
                 ),
               ),
               maxLines: 4,
@@ -111,7 +120,7 @@ class _EditNoteDialogState extends State<EditNoteDialog> {
                   child: OutlinedButton(
                     style: OutlinedButton.styleFrom(
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
+                        borderRadius: BorderRadius.circular(12),
                       ),
                     ),
                     onPressed: () => Navigator.pop(context),
@@ -120,19 +129,22 @@ class _EditNoteDialogState extends State<EditNoteDialog> {
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.primaryAccent,
-                      foregroundColor: Colors.white,
+                  child: FilledButton(
+                    style: FilledButton.styleFrom(
+                      backgroundColor: AppTheme.dockActiveAmber,
+                      foregroundColor: Colors.black,
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
+                        borderRadius: BorderRadius.circular(12),
                       ),
                     ),
                     onPressed: () {
                       FocusScope.of(context).unfocus();
                       _saveNote();
                     },
-                    child: const Text('Сохранить'),
+                    child: Text(
+                      'Сохранить',
+                      style: GoogleFonts.inter(fontWeight: FontWeight.w700),
+                    ),
                   ),
                 ),
               ],

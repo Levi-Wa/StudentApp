@@ -10,6 +10,7 @@ import 'edit_note_dialog.dart';
 
 class NoteCard extends StatelessWidget {
   final Note note;
+  final int index;
   final bool isSelected;
   final bool isSelectionMode;
   final VoidCallback? onLongPress;
@@ -21,6 +22,7 @@ class NoteCard extends StatelessWidget {
   const NoteCard({
     super.key,
     required this.note,
+    this.index = 0,
     this.isSelected = false,
     this.isSelectionMode = false,
     this.onLongPress,
@@ -30,35 +32,68 @@ class NoteCard extends StatelessWidget {
     this.onExtend,
   });
 
+  (Color bg, Color border) _getCardColor(bool isDark) {
+    if (isDark) {
+      switch (index % 5) {
+        case 0:
+          return (const Color(0xFF2E1C14), const Color(0xFF582A1B)); // Peach dark
+        case 1:
+          return (const Color(0xFF282512), const Color(0xFF4E461A)); // Sand dark
+        case 2:
+          return (const Color(0xFF2B210F), const Color(0xFF563D13)); // Amber dark
+        case 3:
+          return (const Color(0xFF221633), const Color(0xFF452769)); // Purple dark
+        default:
+          return (const Color(0xFF102336), const Color(0xFF1E3F61)); // Sky dark
+      }
+    } else {
+      switch (index % 5) {
+        case 0:
+          return (const Color(0xFFFFEDD5), const Color(0xFFFED7AA)); // Peach light
+        case 1:
+          return (const Color(0xFFFEF3C7), const Color(0xFFFDE68A)); // Sand light
+        case 2:
+          return (const Color(0xFFFFF7ED), const Color(0xFFFED7AA)); // Amber light
+        case 3:
+          return (const Color(0xFFF3E8FF), const Color(0xFFE9D5FF)); // Purple light
+        default:
+          return (const Color(0xFFE0F2FE), const Color(0xFFBAE6FD)); // Sky light
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final isExpired = note.isExpired;
+    final (cardBg, cardBorder) = _getCardColor(isDark);
+
+    final textColor = isDark ? const Color(0xFFF1F5F9) : const Color(0xFF1E293B);
+    final subtextColor = isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       decoration: BoxDecoration(
         color: isSelected
-            ? AppTheme.primaryAccent.withOpacity(0.08)
-            : AppTheme.secondaryBackground,
-        borderRadius: BorderRadius.circular(16),
+            ? AppTheme.dockActiveAmber.withValues(alpha: 0.15)
+            : cardBg,
+        borderRadius: BorderRadius.circular(18),
         border: Border.all(
-          color: isSelected
-              ? AppTheme.primaryAccent
-              : AppTheme.dividerColor,
-          width: isSelected ? 1.8 : 1.0,
+          color: isSelected ? AppTheme.dockActiveAmber : cardBorder,
+          width: isSelected ? 2.0 : 1.2,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.03),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
+            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
           ),
         ],
       ),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(18),
           onLongPress: onLongPress,
           onTap: onTap ?? () => _editNote(context),
           child: Padding(
@@ -66,26 +101,14 @@ class NoteCard extends StatelessWidget {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // Selection checkbox if in bulk mode
                 if (isSelectionMode) ...[
                   Checkbox(
                     value: isSelected,
                     onChanged: (_) => onTap?.call(),
-                    activeColor: AppTheme.primaryAccent,
+                    activeColor: AppTheme.dockActiveAmber,
                   ),
                   const SizedBox(width: 8),
-                ] else ...[
-                  // Status indicator pill
-                  Container(
-                    width: 4,
-                    height: 58,
-                    decoration: BoxDecoration(
-                      color: isExpired
-                          ? const Color(0xFFEF4444)
-                          : const Color(0xFF10B981),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                  ),
-                  const SizedBox(width: 14),
                 ],
 
                 // Note info
@@ -93,7 +116,7 @@ class NoteCard extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Subject row
+                      // Subject row + Expired badge
                       Row(
                         children: [
                           Expanded(
@@ -102,7 +125,7 @@ class NoteCard extends StatelessWidget {
                               style: GoogleFonts.inter(
                                 fontSize: ResponsiveText.body(context),
                                 fontWeight: FontWeight.w700,
-                                color: AppTheme.primaryText,
+                                color: textColor,
                               ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
@@ -113,14 +136,14 @@ class NoteCard extends StatelessWidget {
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 6, vertical: 2),
                               decoration: BoxDecoration(
-                                color: const Color(0xFFEF4444).withOpacity(0.12),
+                                color: const Color(0xFFEF4444).withValues(alpha: 0.15),
                                 borderRadius: BorderRadius.circular(6),
                               ),
                               child: Text(
                                 'ПРОСРОЧЕНО',
                                 style: GoogleFonts.inter(
                                   fontSize: 9,
-                                  fontWeight: FontWeight.w700,
+                                  fontWeight: FontWeight.w800,
                                   color: const Color(0xFFEF4444),
                                 ),
                               ),
@@ -135,7 +158,7 @@ class NoteCard extends StatelessWidget {
                         note.text,
                         style: GoogleFonts.inter(
                           fontSize: ResponsiveText.body(context),
-                          color: AppTheme.primaryText.withOpacity(0.9),
+                          color: textColor.withValues(alpha: 0.9),
                           height: 1.35,
                         ),
                         maxLines: 4,
@@ -143,25 +166,25 @@ class NoteCard extends StatelessWidget {
                       ),
                       const SizedBox(height: 10),
 
-                      // Due date badge
+                      // Due date badge (like Completion date in Image 1 Tasks)
                       Row(
                         children: [
                           Icon(
-                            Icons.alarm_rounded,
-                            size: 14,
+                            Icons.calendar_today_rounded,
+                            size: 13,
                             color: isExpired
                                 ? const Color(0xFFEF4444)
-                                : AppTheme.secondaryText,
+                                : subtextColor,
                           ),
-                          const SizedBox(width: 4),
+                          const SizedBox(width: 5),
                           Text(
-                            'До ${note.endDate.day.toString().padLeft(2, '0')}.${note.endDate.month.toString().padLeft(2, '0')}.${note.endDate.year} ${note.endLessonTime}',
+                            'Срок: ${note.endDate.day.toString().padLeft(2, '0')}.${note.endDate.month.toString().padLeft(2, '0')}.${note.endDate.year} ${note.endLessonTime}',
                             style: GoogleFonts.inter(
-                              fontSize: ResponsiveText.small(context),
-                              fontWeight: FontWeight.w500,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
                               color: isExpired
                                   ? const Color(0xFFEF4444)
-                                  : AppTheme.secondaryText,
+                                  : subtextColor,
                             ),
                           ),
                         ],
@@ -170,38 +193,27 @@ class NoteCard extends StatelessWidget {
                   ),
                 ),
 
-                // Action buttons (when not in bulk selection mode)
+                // Interactive Checkbox / Actions (Image 1 style)
                 if (!isSelectionMode) ...[
                   const SizedBox(width: 8),
                   Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
+                      // Checkbox style button to mark done or delete
+                      IconButton(
+                        icon: const Icon(
+                          Icons.check_box_outline_blank_rounded,
+                          size: 22,
+                        ),
+                        tooltip: 'Отметить выполненным',
+                        color: textColor.withValues(alpha: 0.7),
+                        onPressed: () => _confirmDelete(context),
+                      ),
                       IconButton(
                         icon: const Icon(Icons.update_rounded, size: 20),
                         tooltip: 'Перенести на след. пару',
-                        color: AppTheme.primaryAccent,
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(),
+                        color: AppTheme.dockActiveAmber,
                         onPressed: onExtend ?? () => _extendNote(context),
-                      ),
-                      const SizedBox(height: 12),
-                      IconButton(
-                        icon: const Icon(Icons.edit_outlined, size: 19),
-                        tooltip: 'Редактировать',
-                        color: AppTheme.secondaryText,
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(),
-                        onPressed: onEdit ?? () => _editNote(context),
-                      ),
-                      const SizedBox(height: 12),
-                      IconButton(
-                        icon: const Icon(Icons.delete_outline_rounded,
-                            size: 19),
-                        tooltip: 'Удалить',
-                        color: Colors.red.withOpacity(0.8),
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(),
-                        onPressed: onDelete ?? () => _deleteNote(context),
                       ),
                     ],
                   ),
@@ -210,6 +222,33 @@ class NoteCard extends StatelessWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  void _confirmDelete(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Завершить задачу?'),
+        content: Text('Удалить заметку по предмету «${note.disc}»?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Отмена'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: AppTheme.dockActiveAmber,
+              foregroundColor: Colors.black,
+            ),
+            onPressed: () {
+              Navigator.pop(ctx);
+              Provider.of<NotesProvider>(context, listen: false).deleteNote(note.id);
+            },
+            child: const Text('Выполнено'),
+          ),
+        ],
       ),
     );
   }
@@ -234,9 +273,5 @@ class NoteCard extends StatelessWidget {
       context: context,
       builder: (context) => EditNoteDialog(note: note),
     );
-  }
-
-  void _deleteNote(BuildContext context) {
-    Provider.of<NotesProvider>(context, listen: false).deleteNote(note.id);
   }
 }

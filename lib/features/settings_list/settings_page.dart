@@ -2,12 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:hive/hive.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import '../../theme/app_theme.dart';
 import '../../data/providers/app_state.dart';
 import '../../data/providers/theme_provider.dart';
 import '../../data/providers/text_size_provider.dart';
 import '../../data/models/group.dart';
 import '../../data/services/notification_service.dart';
+import '../../data/services/update_service.dart';
 import '../../utils/responsive_text.dart';
 
 class SettingsPage extends StatefulWidget {
@@ -27,22 +29,40 @@ class _SettingsPageState extends State<SettingsPage> {
   String? _selectedCourse;
   Group? _selectedGroup;
 
+  // App Update state
+  String _currentAppVersion = '1.0.1';
+  bool _isCheckingUpdate = false;
+  String? _updateStatusMessage;
+  AppUpdateInfo? _availableUpdate;
+
   @override
   void initState() {
     super.initState();
     _loadNotificationSettings();
     _initializeCurrentGroup();
+    _loadAppVersion();
+  }
+
+  Future<void> _loadAppVersion() async {
+    try {
+      final info = await PackageInfo.fromPlatform();
+      if (mounted) {
+        setState(() => _currentAppVersion = info.version);
+      }
+    } catch (_) {}
   }
 
   void _loadNotificationSettings() async {
     final box = await Hive.openBox('notification_settings');
-    setState(() {
-      pushNotifications =
-          box.get('schedule_notifications', defaultValue: false);
-      noteNotifications = box.get('note_notifications', defaultValue: false);
-      notificationPeriod =
-          box.get('notification_period', defaultValue: 'За день');
-    });
+    if (mounted) {
+      setState(() {
+        pushNotifications =
+            box.get('schedule_notifications', defaultValue: false);
+        noteNotifications = box.get('note_notifications', defaultValue: false);
+        notificationPeriod =
+            box.get('notification_period', defaultValue: 'За день');
+      });
+    }
   }
 
   void _initializeCurrentGroup() async {
@@ -52,8 +72,9 @@ class _SettingsPageState extends State<SettingsPage> {
     final groupId = await appState.getSavedGroupId();
     final groupName = await appState.getSavedGroupName();
 
-    if (groupId != null && groupName != null) {
-      final currentGroup = appState.groups.where((g) => g.id == groupId).firstOrNull;
+    if (groupId != null && groupName != null && mounted) {
+      final currentGroup =
+          appState.groups.where((g) => g.id == groupId).firstOrNull;
 
       if (currentGroup != null) {
         setState(() {
@@ -65,10 +86,47 @@ class _SettingsPageState extends State<SettingsPage> {
     }
   }
 
+  Future<void> _checkAppUpdate() async {
+    setState(() {
+      _isCheckingUpdate = true;
+      _updateStatusMessage = null;
+    });
+
+    try {
+      final info = await UpdateService().checkForUpdate();
+      if (!mounted) return;
+
+      setState(() {
+        _isCheckingUpdate = false;
+        _availableUpdate = info;
+        if (info == null) {
+          _updateStatusMessage = 'Не удалось связаться с репозиторием';
+        } else if (info.hasUpdate) {
+          _updateStatusMessage = 'Доступна новая версия: v${info.latestVersion}!';
+        } else {
+          _updateStatusMessage =
+              'У вас установлена последняя версия (v${info.currentVersion})';
+        }
+      });
+
+      if (info != null && info.hasUpdate && mounted) {
+        UpdateService.showUpdateModal(context, info);
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isCheckingUpdate = false;
+          _updateStatusMessage = 'Ошибка при проверке обновлений';
+        });
+      }
+    }
+  }
+
   String _formatDateTime(DateTime? dt) {
     if (dt == null) return 'Неизвестно';
     final now = DateTime.now();
-    final isToday = dt.year == now.year && dt.month == now.month && dt.day == now.day;
+    final isToday =
+        dt.year == now.year && dt.month == now.month && dt.day == now.day;
     final timeStr =
         '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
     if (isToday) {
@@ -79,50 +137,234 @@ class _SettingsPageState extends State<SettingsPage> {
 
   @override
   Widget build(BuildContext context) {
+    // Watching ThemeProvider ensures 100% instant 0ms redraw when toggled
+    context.watch<ThemeProvider>();
     final appState = Provider.of<AppState>(context);
 
+    final bg = AppTheme.bg(context);
+    final cardBg = AppTheme.secondaryBg(context);
+    final surface = AppTheme.surface(context);
+    final text = AppTheme.text(context);
+    final subtext = AppTheme.subtext(context);
+    final divider = AppTheme.divider(context);
+
     return Scaffold(
-      backgroundColor: AppTheme.primaryBackground,
+      backgroundColor: bg,
       appBar: AppBar(
+        backgroundColor: cardBg,
+        elevation: 0,
         title: Text(
           'Настройки',
-          style: GoogleFonts.inter(fontWeight: FontWeight.w700),
+          style: GoogleFonts.inter(
+            fontWeight: FontWeight.w700,
+            color: text,
+          ),
         ),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_rounded),
+          icon: Icon(Icons.arrow_back_rounded, color: text),
           onPressed: () => Navigator.pop(context),
         ),
       ),
       body: ListView(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         children: [
+          // App Update Section
+          _buildUpdateSection(cardBg, surface, text, subtext, divider),
+          const SizedBox(height: 16),
+
           // Current Group info & changer
-          _buildGroupSection(appState),
+          _buildGroupSection(appState, cardBg, surface, text, subtext, divider),
           const SizedBox(height: 16),
 
           // Schedule Sync section
-          _buildSyncSection(appState),
+          _buildSyncSection(appState, cardBg, surface, text, subtext, divider),
           const SizedBox(height: 16),
 
           // App Appearance & Notifications
-          _buildAppearanceSection(),
+          _buildAppearanceSection(cardBg, surface, text, subtext, divider),
           const SizedBox(height: 16),
 
           // Reset data
-          _buildResetSection(appState),
+          _buildResetSection(appState, cardBg, text, subtext, divider),
           const SizedBox(height: 24),
         ],
       ),
     );
   }
 
-  Widget _buildGroupSection(AppState appState) {
+  Widget _buildUpdateSection(
+    Color cardBg,
+    Color surface,
+    Color text,
+    Color subtext,
+    Color divider,
+  ) {
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: AppTheme.secondaryBackground,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppTheme.dividerColor),
+        color: cardBg,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: divider),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: AppTheme.dockActiveAmber.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.system_update_rounded,
+                  color: AppTheme.dockActiveAmber,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Обновление приложения',
+                  style: GoogleFonts.inter(
+                    fontSize: ResponsiveText.title(context),
+                    fontWeight: FontWeight.w700,
+                    color: text,
+                  ),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: surface,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  'v$_currentAppVersion',
+                  style: GoogleFonts.inter(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: subtext,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            'Проверка наличия новых версий и APK в официальном репозитории StudentApp.',
+            style: GoogleFonts.inter(
+              fontSize: 13,
+              color: subtext,
+              height: 1.35,
+            ),
+          ),
+          if (_updateStatusMessage != null) ...[
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: _availableUpdate?.hasUpdate == true
+                    ? AppTheme.dockActiveAmber.withValues(alpha: 0.12)
+                    : surface,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    _availableUpdate?.hasUpdate == true
+                        ? Icons.info_outline_rounded
+                        : Icons.check_circle_outline_rounded,
+                    size: 16,
+                    color: _availableUpdate?.hasUpdate == true
+                        ? AppTheme.dockActiveAmber
+                        : const Color(0xFF10B981),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      _updateStatusMessage!,
+                      style: GoogleFonts.inter(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        color: text,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppTheme.primaryAccent,
+                    side: const BorderSide(color: AppTheme.primaryAccent),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  onPressed: _isCheckingUpdate ? null : _checkAppUpdate,
+                  icon: _isCheckingUpdate
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.sync_rounded, size: 18),
+                  label: Text(
+                    _isCheckingUpdate ? 'Проверка...' : 'Проверить обновления',
+                    style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ),
+              if (_availableUpdate?.hasUpdate == true) ...[
+                const SizedBox(width: 10),
+                FilledButton.icon(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppTheme.dockActiveAmber,
+                    foregroundColor: Colors.black,
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  onPressed: () =>
+                      UpdateService.showUpdateModal(context, _availableUpdate!),
+                  icon: const Icon(Icons.download_rounded, size: 18),
+                  label: Text(
+                    'Скачать',
+                    style: GoogleFonts.inter(fontWeight: FontWeight.w700),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildGroupSection(
+    AppState appState,
+    Color cardBg,
+    Color surface,
+    Color text,
+    Color subtext,
+    Color divider,
+  ) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: cardBg,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: divider),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -137,7 +379,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 style: GoogleFonts.inter(
                   fontSize: ResponsiveText.title(context),
                   fontWeight: FontWeight.w700,
-                  color: AppTheme.primaryText,
+                  color: text,
                 ),
               ),
             ],
@@ -146,8 +388,8 @@ class _SettingsPageState extends State<SettingsPage> {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: AppTheme.surfaceBackground,
-              borderRadius: BorderRadius.circular(10),
+              color: surface,
+              borderRadius: BorderRadius.circular(12),
             ),
             child: Row(
               children: [
@@ -159,7 +401,7 @@ class _SettingsPageState extends State<SettingsPage> {
                         'Текущая группа:',
                         style: GoogleFonts.inter(
                           fontSize: 12,
-                          color: AppTheme.secondaryText,
+                          color: subtext,
                         ),
                       ),
                       const SizedBox(height: 2),
@@ -168,7 +410,7 @@ class _SettingsPageState extends State<SettingsPage> {
                         style: GoogleFonts.inter(
                           fontSize: 16,
                           fontWeight: FontWeight.w700,
-                          color: AppTheme.primaryText,
+                          color: text,
                         ),
                       ),
                     ],
@@ -183,30 +425,29 @@ class _SettingsPageState extends State<SettingsPage> {
             style: GoogleFonts.inter(
               fontSize: 13,
               fontWeight: FontWeight.w600,
-              color: AppTheme.secondaryText,
+              color: subtext,
             ),
           ),
           const SizedBox(height: 10),
 
           // Form Edu Dropdown
           DropdownButtonFormField<String>(
-            value: _selectedFormEdu,
+            initialValue: _selectedFormEdu,
             decoration: InputDecoration(
               labelText: 'Форма обучения',
               filled: true,
-              fillColor: AppTheme.surfaceBackground,
+              fillColor: surface,
               border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide: BorderSide(color: AppTheme.dividerColor),
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: divider),
               ),
               enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide: BorderSide(color: AppTheme.dividerColor),
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: divider),
               ),
             ),
             items: appState.formEduOptions
-                .map((item) =>
-                    DropdownMenuItem(value: item, child: Text(item)))
+                .map((item) => DropdownMenuItem(value: item, child: Text(item)))
                 .toList(),
             onChanged: (value) {
               setState(() {
@@ -223,24 +464,23 @@ class _SettingsPageState extends State<SettingsPage> {
 
           // Course Dropdown
           DropdownButtonFormField<String>(
-            value: _selectedCourse,
+            initialValue: _selectedCourse,
             decoration: InputDecoration(
               labelText: 'Курс',
               filled: true,
-              fillColor: AppTheme.surfaceBackground,
+              fillColor: surface,
               border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide: BorderSide(color: AppTheme.dividerColor),
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: divider),
               ),
               enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide: BorderSide(color: AppTheme.dividerColor),
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: divider),
               ),
             ),
             items: appState
                 .getCourseOptions(_selectedFormEdu)
-                .map((item) =>
-                    DropdownMenuItem(value: item, child: Text(item)))
+                .map((item) => DropdownMenuItem(value: item, child: Text(item)))
                 .toList(),
             onChanged: (value) {
               setState(() {
@@ -256,18 +496,18 @@ class _SettingsPageState extends State<SettingsPage> {
 
           // Group Dropdown
           DropdownButtonFormField<Group>(
-            value: _selectedGroup,
+            initialValue: _selectedGroup,
             decoration: InputDecoration(
               labelText: 'Группа',
               filled: true,
-              fillColor: AppTheme.surfaceBackground,
+              fillColor: surface,
               border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide: BorderSide(color: AppTheme.dividerColor),
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: divider),
               ),
               enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide: BorderSide(color: AppTheme.dividerColor),
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: divider),
               ),
             ),
             items: appState.groups
@@ -293,7 +533,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 backgroundColor: AppTheme.primaryAccent,
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(12),
                 ),
               ),
               onPressed: _selectedGroup != null ? _applyNewGroup : null,
@@ -309,13 +549,20 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
-  Widget _buildSyncSection(AppState appState) {
+  Widget _buildSyncSection(
+    AppState appState,
+    Color cardBg,
+    Color surface,
+    Color text,
+    Color subtext,
+    Color divider,
+  ) {
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: AppTheme.secondaryBackground,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppTheme.dividerColor),
+        color: cardBg,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: divider),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -330,7 +577,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 style: GoogleFonts.inter(
                   fontSize: ResponsiveText.title(context),
                   fontWeight: FontWeight.w700,
-                  color: AppTheme.primaryText,
+                  color: text,
                 ),
               ),
             ],
@@ -340,7 +587,7 @@ class _SettingsPageState extends State<SettingsPage> {
             'Последняя синхронизация: ${_formatDateTime(appState.lastUpdated)}',
             style: GoogleFonts.inter(
               fontSize: 13,
-              color: AppTheme.secondaryText,
+              color: subtext,
             ),
           ),
           const SizedBox(height: 14),
@@ -352,7 +599,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 foregroundColor: AppTheme.primaryAccent,
                 side: const BorderSide(color: AppTheme.primaryAccent),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(12),
                 ),
               ),
               onPressed: _isUpdating ? null : _updateSchedule,
@@ -363,7 +610,7 @@ class _SettingsPageState extends State<SettingsPage> {
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
                   : const Icon(Icons.refresh_rounded, size: 20),
-              label: Text(_isUpdating ? 'Обновление...' : 'Обновить сейчас'),
+              label: Text(_isUpdating ? 'Обновление...' : 'Обновить расписание'),
             ),
           ),
         ],
@@ -371,13 +618,22 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
-  Widget _buildAppearanceSection() {
+  Widget _buildAppearanceSection(
+    Color cardBg,
+    Color surface,
+    Color text,
+    Color subtext,
+    Color divider,
+  ) {
+    final themeProvider = context.watch<ThemeProvider>();
+    final textSizeProvider = context.watch<TextSizeProvider>();
+
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: AppTheme.secondaryBackground,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppTheme.dividerColor),
+        color: cardBg,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: divider),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -392,36 +648,32 @@ class _SettingsPageState extends State<SettingsPage> {
                 style: GoogleFonts.inter(
                   fontSize: ResponsiveText.title(context),
                   fontWeight: FontWeight.w700,
-                  color: AppTheme.primaryText,
+                  color: text,
                 ),
               ),
             ],
           ),
           const SizedBox(height: 12),
-          Consumer<ThemeProvider>(
-            builder: (context, themeProvider, child) {
-              return SwitchListTile(
-                contentPadding: EdgeInsets.zero,
-                title: Text(
-                  'Тёмная тема',
-                  style: GoogleFonts.inter(
-                    fontSize: ResponsiveText.body(context),
-                    fontWeight: FontWeight.w500,
-                    color: AppTheme.primaryText,
-                  ),
-                ),
-                value: themeProvider.isDarkMode,
-                activeColor: AppTheme.primaryAccent,
-                onChanged: (_) => themeProvider.toggleTheme(),
-              );
-            },
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: Text(
+              'Тёмная тема',
+              style: GoogleFonts.inter(
+                fontSize: ResponsiveText.body(context),
+                fontWeight: FontWeight.w500,
+                color: text,
+              ),
+            ),
+            subtitle: Text(
+              themeProvider.isDarkMode ? 'Включена' : 'Выключена',
+              style: GoogleFonts.inter(fontSize: 12, color: subtext),
+            ),
+            value: themeProvider.isDarkMode,
+            activeThumbColor: AppTheme.dockActiveAmber,
+            onChanged: (_) => themeProvider.toggleTheme(),
           ),
-          Consumer<TextSizeProvider>(
-            builder: (context, textSizeProvider, child) {
-              return _buildTextSizeSelector(textSizeProvider);
-            },
-          ),
-          const Divider(),
+          _buildTextSizeSelector(textSizeProvider, surface, text, divider),
+          Divider(color: divider),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
             title: Text(
@@ -429,11 +681,11 @@ class _SettingsPageState extends State<SettingsPage> {
               style: GoogleFonts.inter(
                 fontSize: ResponsiveText.body(context),
                 fontWeight: FontWeight.w500,
-                color: AppTheme.primaryText,
+                color: text,
               ),
             ),
             value: pushNotifications,
-            activeColor: AppTheme.primaryAccent,
+            activeThumbColor: AppTheme.primaryAccent,
             onChanged: (v) async {
               setState(() => pushNotifications = v);
               await NotificationService.setScheduleNotifications(v);
@@ -446,11 +698,11 @@ class _SettingsPageState extends State<SettingsPage> {
               style: GoogleFonts.inter(
                 fontSize: ResponsiveText.body(context),
                 fontWeight: FontWeight.w500,
-                color: AppTheme.primaryText,
+                color: text,
               ),
             ),
             value: noteNotifications,
-            activeColor: AppTheme.primaryAccent,
+            activeThumbColor: AppTheme.primaryAccent,
             onChanged: (v) async {
               setState(() => noteNotifications = v);
               await NotificationService.setNoteNotifications(v);
@@ -458,23 +710,22 @@ class _SettingsPageState extends State<SettingsPage> {
           ),
           const SizedBox(height: 8),
           DropdownButtonFormField<String>(
-            value: notificationPeriod,
+            initialValue: notificationPeriod,
             decoration: InputDecoration(
               labelText: 'Напоминать о заметках за...',
               filled: true,
-              fillColor: AppTheme.surfaceBackground,
+              fillColor: surface,
               border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide: BorderSide(color: AppTheme.dividerColor),
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: divider),
               ),
               enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide: BorderSide(color: AppTheme.dividerColor),
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: divider),
               ),
             ),
             items: ['За день', 'За 3 дня', 'За 7 дней']
-                .map((item) =>
-                    DropdownMenuItem(value: item, child: Text(item)))
+                .map((item) => DropdownMenuItem(value: item, child: Text(item)))
                 .toList(),
             onChanged: (v) async {
               if (v != null) {
@@ -488,13 +739,19 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
-  Widget _buildResetSection(AppState appState) {
+  Widget _buildResetSection(
+    AppState appState,
+    Color cardBg,
+    Color text,
+    Color subtext,
+    Color divider,
+  ) {
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: AppTheme.secondaryBackground,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppTheme.dividerColor),
+        color: cardBg,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: divider),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -519,7 +776,7 @@ class _SettingsPageState extends State<SettingsPage> {
             'Очистить сохраненную группу, расписание и заметки',
             style: GoogleFonts.inter(
               fontSize: 13,
-              color: AppTheme.secondaryText,
+              color: subtext,
             ),
           ),
           const SizedBox(height: 14),
@@ -531,7 +788,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 foregroundColor: Colors.red,
                 side: const BorderSide(color: Colors.red),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(12),
                 ),
               ),
               onPressed: _showResetDialog,
@@ -544,7 +801,12 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
-  Widget _buildTextSizeSelector(TextSizeProvider textSizeProvider) {
+  Widget _buildTextSizeSelector(
+    TextSizeProvider textSizeProvider,
+    Color surface,
+    Color text,
+    Color divider,
+  ) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
@@ -555,21 +817,21 @@ class _SettingsPageState extends State<SettingsPage> {
             style: GoogleFonts.inter(
               fontSize: ResponsiveText.body(context),
               fontWeight: FontWeight.w500,
-              color: AppTheme.primaryText,
+              color: text,
             ),
           ),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10),
             decoration: BoxDecoration(
-              color: AppTheme.surfaceBackground,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: AppTheme.dividerColor),
+              color: surface,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: divider),
             ),
             child: DropdownButton<String>(
               value: textSizeProvider.currentSizeLabel,
               underline: const SizedBox(),
               icon: const Icon(Icons.arrow_drop_down),
-              dropdownColor: AppTheme.secondaryBackground,
+              dropdownColor: surface,
               items: TextSizeProvider.textSizeOptions.map((option) {
                 return DropdownMenuItem<String>(
                   value: option['label'] as String,
@@ -578,7 +840,7 @@ class _SettingsPageState extends State<SettingsPage> {
                     style: GoogleFonts.inter(
                       fontSize: 14,
                       fontWeight: FontWeight.w500,
-                      color: AppTheme.primaryText,
+                      color: text,
                     ),
                   ),
                 );

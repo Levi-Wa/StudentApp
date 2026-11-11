@@ -49,7 +49,7 @@ class NotesProvider extends ChangeNotifier {
       
       await NotificationService.scheduleNoteNotification(
         'Истекает срок заметки',
-        'Заметка по ${note.disc}: ${note.text.length > 50 ? note.text.substring(0, 50) + "..." : note.text}',
+        'Заметка по ${note.disc}: ${note.text.length > 50 ? "${note.text.substring(0, 50)}..." : note.text}',
         notificationTime,
         notificationId: notificationId,
       );
@@ -62,8 +62,7 @@ class NotesProvider extends ChangeNotifier {
     try {
       await NotificationService.cancelNotification(notificationId);
     } catch (e) {
-      // Не блокируем удаление заметки из-за проблем с уведомлениями
-      print('NotesProvider: Ошибка отмены уведомления для заметки $id: $e');
+      // Игнорируем ошибку отмены уведомления
     }
     
     await _repository.deleteNote(id);

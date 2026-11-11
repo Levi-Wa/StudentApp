@@ -1,0 +1,7 @@
+{
+  "version": "1.0.1",
+  "version_code": 2,
+  "title": "StudentApp v1.0.1",
+  "download_url": "https://github.com/Levi-Wa/StudentApp/releases/latest/download/app-release.apk",
+  "release_notes": "• Полный редизайн интерфейса по референсу: удобная вертикальная панель дней недели\n• Яркие стильные карточки пар с таймлайном\n• Мгновенное переключение тёмной темы\n• Встроенная проверка и авто-обновление APK из репозитория"
+}
