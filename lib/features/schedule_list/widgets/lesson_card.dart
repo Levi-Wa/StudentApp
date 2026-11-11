@@ -64,7 +64,8 @@ class LessonCard extends StatelessWidget {
       if (startParts.length == 2 && endParts.length == 2) {
         final startMinutes =
             int.parse(startParts[0]) * 60 + int.parse(startParts[1]);
-        final endMinutes = int.parse(endParts[0]) * 60 + int.parse(endParts[1]);
+        final endMinutes =
+            int.parse(endParts[0]) * 60 + int.parse(endParts[1]);
         return currentMinutes >= startMinutes && currentMinutes <= endMinutes;
       }
     } catch (_) {}
@@ -78,7 +79,8 @@ class LessonCard extends StatelessWidget {
       final currentMinutes = now.hour * 60 + now.minute;
       final endParts = endTime.split(':');
       if (endParts.length == 2) {
-        final endMinutes = int.parse(endParts[0]) * 60 + int.parse(endParts[1]);
+        final endMinutes =
+            int.parse(endParts[0]) * 60 + int.parse(endParts[1]);
         return currentMinutes > endMinutes;
       }
     } catch (_) {}
@@ -102,13 +104,13 @@ class LessonCard extends StatelessWidget {
     final subtext = AppTheme.subtext(context);
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.only(bottom: 12),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Time column on the left (matching Image 1)
           SizedBox(
-            width: 52,
+            width: 48,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -117,7 +119,7 @@ class LessonCard extends StatelessWidget {
                   Container(
                     margin: const EdgeInsets.only(bottom: 4),
                     padding:
-                        const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                        const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                     decoration: BoxDecoration(
                       color: const Color(0xFF10B981),
                       borderRadius: BorderRadius.circular(4),
@@ -125,10 +127,10 @@ class LessonCard extends StatelessWidget {
                     child: Text(
                       'СЕЙЧАС',
                       style: GoogleFonts.inter(
-                        fontSize: 8,
+                        fontSize: 7.5,
                         fontWeight: FontWeight.w800,
                         color: Colors.white,
-                        letterSpacing: 0.4,
+                        letterSpacing: 0.3,
                       ),
                     ),
                   ),
@@ -136,7 +138,7 @@ class LessonCard extends StatelessWidget {
                 Text(
                   startTime,
                   style: GoogleFonts.inter(
-                    fontSize: 13,
+                    fontSize: 12.5,
                     fontWeight: FontWeight.w700,
                     color: isCurrent
                         ? const Color(0xFF10B981)
@@ -149,7 +151,7 @@ class LessonCard extends StatelessWidget {
                 Text(
                   endTime,
                   style: GoogleFonts.inter(
-                    fontSize: 11,
+                    fontSize: 10.5,
                     fontWeight: FontWeight.w500,
                     color: subtext.withValues(alpha: 0.7),
                   ),
@@ -162,7 +164,8 @@ class LessonCard extends StatelessWidget {
           // Vibrant rounded Lesson Card (matching Image 1)
           Expanded(
             child: InkWell(
-              onTap: onTap ?? () => _showLessonDetails(context, startTime, endTime),
+              onTap: onTap ??
+                  () => _showLessonDetails(context, startTime, endTime),
               borderRadius: BorderRadius.circular(20),
               child: AnimatedOpacity(
                 duration: const Duration(milliseconds: 200),
@@ -306,7 +309,8 @@ class LessonCard extends StatelessWidget {
       builder: (ctx) {
         final isDark = Theme.of(ctx).brightness == Brightness.dark;
         final bg = isDark ? const Color(0xFF1A1D24) : Colors.white;
-        final text = isDark ? const Color(0xFFF1F5F9) : const Color(0xFF0F172A);
+        final text =
+            isDark ? const Color(0xFFF1F5F9) : const Color(0xFF0F172A);
         final subtext =
             isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
         final surface =

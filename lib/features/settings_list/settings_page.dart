@@ -181,7 +181,7 @@ class _SettingsPageState extends State<SettingsPage> {
           const SizedBox(height: 16),
 
           // App Appearance & Notifications
-          _buildAppearanceSection(cardBg, surface, text, subtext, divider),
+          _buildAppearanceSection(appState, cardBg, surface, text, subtext, divider),
           const SizedBox(height: 16),
 
           // Reset data
@@ -337,9 +337,9 @@ class _SettingsPageState extends State<SettingsPage> {
                   ),
                   onPressed: () =>
                       UpdateService.showUpdateModal(context, _availableUpdate!),
-                  icon: const Icon(Icons.download_rounded, size: 18),
+                  icon: const Icon(Icons.system_update_rounded, size: 18),
                   label: Text(
-                    'Скачать',
+                    'Обновить',
                     style: GoogleFonts.inter(fontWeight: FontWeight.w700),
                   ),
                 ),
@@ -373,13 +373,15 @@ class _SettingsPageState extends State<SettingsPage> {
             children: [
               const Icon(Icons.school_outlined,
                   color: AppTheme.primaryAccent, size: 22),
-              const SizedBox(width: 8),
-              Text(
-                'Учебная группа',
-                style: GoogleFonts.inter(
-                  fontSize: ResponsiveText.title(context),
-                  fontWeight: FontWeight.w700,
-                  color: text,
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Учебная группа',
+                  style: GoogleFonts.inter(
+                    fontSize: ResponsiveText.title(context),
+                    fontWeight: FontWeight.w700,
+                    color: text,
+                  ),
                 ),
               ),
             ],
@@ -571,13 +573,15 @@ class _SettingsPageState extends State<SettingsPage> {
             children: [
               const Icon(Icons.sync_rounded,
                   color: AppTheme.primaryAccent, size: 22),
-              const SizedBox(width: 8),
-              Text(
-                'Обновление данных',
-                style: GoogleFonts.inter(
-                  fontSize: ResponsiveText.title(context),
-                  fontWeight: FontWeight.w700,
-                  color: text,
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Обновление данных',
+                  style: GoogleFonts.inter(
+                    fontSize: ResponsiveText.title(context),
+                    fontWeight: FontWeight.w700,
+                    color: text,
+                  ),
                 ),
               ),
             ],
@@ -619,6 +623,7 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Widget _buildAppearanceSection(
+    AppState appState,
     Color cardBg,
     Color surface,
     Color text,
@@ -642,13 +647,15 @@ class _SettingsPageState extends State<SettingsPage> {
             children: [
               const Icon(Icons.tune_rounded,
                   color: AppTheme.primaryAccent, size: 22),
-              const SizedBox(width: 8),
-              Text(
-                'Внешний вид и уведомления',
-                style: GoogleFonts.inter(
-                  fontSize: ResponsiveText.title(context),
-                  fontWeight: FontWeight.w700,
-                  color: text,
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Внешний вид и уведомления',
+                  style: GoogleFonts.inter(
+                    fontSize: ResponsiveText.title(context),
+                    fontWeight: FontWeight.w700,
+                    color: text,
+                  ),
                 ),
               ),
             ],
@@ -671,6 +678,24 @@ class _SettingsPageState extends State<SettingsPage> {
             value: themeProvider.isDarkMode,
             activeThumbColor: AppTheme.dockActiveAmber,
             onChanged: (_) => themeProvider.toggleTheme(),
+          ),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: Text(
+              'Скрывать дни без пар',
+              style: GoogleFonts.inter(
+                fontSize: ResponsiveText.body(context),
+                fontWeight: FontWeight.w500,
+                color: text,
+              ),
+            ),
+            subtitle: Text(
+              'Отображать в боковой панели только дни с занятиями',
+              style: GoogleFonts.inter(fontSize: 12, color: subtext),
+            ),
+            value: appState.hideEmptyDays,
+            activeThumbColor: AppTheme.dockActiveAmber,
+            onChanged: (v) => appState.setHideEmptyDays(v),
           ),
           _buildTextSizeSelector(textSizeProvider, surface, text, divider),
           Divider(color: divider),
@@ -760,13 +785,15 @@ class _SettingsPageState extends State<SettingsPage> {
             children: [
               const Icon(Icons.delete_outline_rounded,
                   color: Colors.red, size: 22),
-              const SizedBox(width: 8),
-              Text(
-                'Сброс данных',
-                style: GoogleFonts.inter(
-                  fontSize: ResponsiveText.title(context),
-                  fontWeight: FontWeight.w700,
-                  color: Colors.red,
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Сброс данных',
+                  style: GoogleFonts.inter(
+                    fontSize: ResponsiveText.title(context),
+                    fontWeight: FontWeight.w700,
+                    color: Colors.red,
+                  ),
                 ),
               ),
             ],

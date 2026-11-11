@@ -30,6 +30,8 @@ class AppTheme {
   static Color subtext(BuildContext context) =>
       isDarkMode(context) ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
 
+  static Color secondaryTextCol(BuildContext context) => subtext(context);
+
   static Color divider(BuildContext context) =>
       isDarkMode(context) ? const Color(0xFF28303C) : const Color(0xFFE2E8F0);
 

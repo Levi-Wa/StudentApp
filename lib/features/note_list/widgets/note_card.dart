@@ -68,8 +68,10 @@ class NoteCard extends StatelessWidget {
     final isExpired = note.isExpired;
     final (cardBg, cardBorder) = _getCardColor(isDark);
 
-    final textColor = isDark ? const Color(0xFFF1F5F9) : const Color(0xFF1E293B);
-    final subtextColor = isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
+    final textColor =
+        isDark ? const Color(0xFFF1F5F9) : const Color(0xFF1E293B);
+    final subtextColor =
+        isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
@@ -136,7 +138,8 @@ class NoteCard extends StatelessWidget {
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 6, vertical: 2),
                               decoration: BoxDecoration(
-                                color: const Color(0xFFEF4444).withValues(alpha: 0.15),
+                                color: const Color(0xFFEF4444)
+                                    .withValues(alpha: 0.15),
                                 borderRadius: BorderRadius.circular(6),
                               ),
                               child: Text(
@@ -177,14 +180,18 @@ class NoteCard extends StatelessWidget {
                                 : subtextColor,
                           ),
                           const SizedBox(width: 5),
-                          Text(
-                            'Срок: ${note.endDate.day.toString().padLeft(2, '0')}.${note.endDate.month.toString().padLeft(2, '0')}.${note.endDate.year} ${note.endLessonTime}',
-                            style: GoogleFonts.inter(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: isExpired
-                                  ? const Color(0xFFEF4444)
-                                  : subtextColor,
+                          Expanded(
+                            child: Text(
+                              'Срок: ${note.endDate.day.toString().padLeft(2, '0')}.${note.endDate.month.toString().padLeft(2, '0')}.${note.endDate.year} ${note.endLessonTime}',
+                              style: GoogleFonts.inter(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: isExpired
+                                    ? const Color(0xFFEF4444)
+                                    : subtextColor,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
                         ],
@@ -244,7 +251,8 @@ class NoteCard extends StatelessWidget {
             ),
             onPressed: () {
               Navigator.pop(ctx);
-              Provider.of<NotesProvider>(context, listen: false).deleteNote(note.id);
+              Provider.of<NotesProvider>(context, listen: false)
+                  .deleteNote(note.id);
             },
             child: const Text('Выполнено'),
           ),

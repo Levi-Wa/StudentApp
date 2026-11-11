@@ -1,9 +1,9 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
-import '../../services/permissions_service.dart';
 import '../../data/providers/app_state.dart';
-import '../../data/providers/theme_provider.dart';
+import '../../services/permissions_service.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/responsive_text.dart';
 
@@ -18,36 +18,34 @@ class _StartScreenState extends State<StartScreen> {
   String? selectedForm;
   String? selectedCourse;
   String? selectedGroup;
-  bool _isSubmitting = false;
   bool _permissionsRequested = false;
   bool _isCheckingGroup = true;
+  bool _isSubmitting = false;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _requestPermissionsAndCheckGroup();
-    });
+    _initializeApp();
   }
 
-  void _requestPermissionsAndCheckGroup() async {
-    final permissionsGranted =
-        await PermissionsService.requestSystemPermissions();
-
+  Future<void> _initializeApp() async {
+    await PermissionsService.requestSystemPermissions();
     if (mounted) {
       setState(() {
-        _permissionsRequested = permissionsGranted;
+        _permissionsRequested = true;
       });
+    }
 
+    _checkExistingGroup();
+  }
+
+  Future<void> _checkExistingGroup() async {
+    final appState = Provider.of<AppState>(context, listen: false);
+    final hasGroup = await appState.hasSelectedGroup();
+    if (hasGroup && mounted) {
+      Navigator.pushReplacementNamed(context, '/home');
+    } else {
       try {
-        final appState = Provider.of<AppState>(context, listen: false);
-        final hasGroup = await appState.hasSelectedGroup();
-
-        if (hasGroup && mounted) {
-          Navigator.pushReplacementNamed(context, '/home');
-          return;
-        }
-
         await appState.loadGroups();
       } catch (_) {}
       if (mounted) {
@@ -60,28 +58,20 @@ class _StartScreenState extends State<StartScreen> {
 
   @override
   Widget build(BuildContext context) {
-    context.watch<ThemeProvider>();
-
-    final bg = AppTheme.bg(context);
-    final cardBg = AppTheme.secondaryBg(context);
-    final text = AppTheme.text(context);
-    final subtext = AppTheme.subtext(context);
-    final divider = AppTheme.divider(context);
-
     if (!_permissionsRequested || _isCheckingGroup) {
       return Scaffold(
-        backgroundColor: bg,
+        backgroundColor: AppTheme.primaryBackground,
         body: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const CircularProgressIndicator(color: AppTheme.dockActiveAmber),
+              const CircularProgressIndicator(color: AppTheme.primaryAccent),
               const SizedBox(height: 20),
               Text(
                 'Подготовка приложения...',
                 style: GoogleFonts.inter(
                   fontSize: ResponsiveText.body(context),
-                  color: text,
+                  color: AppTheme.primaryText,
                 ),
               ),
             ],
@@ -91,7 +81,7 @@ class _StartScreenState extends State<StartScreen> {
     }
 
     return Scaffold(
-      backgroundColor: bg,
+      backgroundColor: AppTheme.primaryBackground,
       body: SafeArea(
         child: Consumer<AppState>(
           builder: (context, appState, child) {
@@ -104,18 +94,18 @@ class _StartScreenState extends State<StartScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 30),
                   // Welcome icon
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: AppTheme.dockActiveAmber.withValues(alpha: 0.15),
+                      color: AppTheme.primaryAccent.withValues(alpha: 0.1),
                       shape: BoxShape.circle,
                     ),
                     child: const Icon(
                       Icons.school_rounded,
                       size: 44,
-                      color: AppTheme.dockActiveAmber,
+                      color: AppTheme.primaryAccent,
                     ),
                   ),
                   const SizedBox(height: 24),
@@ -126,7 +116,7 @@ class _StartScreenState extends State<StartScreen> {
                     style: GoogleFonts.inter(
                       fontSize: ResponsiveText.headline(context),
                       fontWeight: FontWeight.w800,
-                      color: text,
+                      color: AppTheme.primaryText,
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -134,7 +124,7 @@ class _StartScreenState extends State<StartScreen> {
                     'Выберите свою учебную группу, чтобы загрузить актуальное расписание',
                     style: GoogleFonts.inter(
                       fontSize: ResponsiveText.body(context),
-                      color: subtext,
+                      color: AppTheme.secondaryText,
                       height: 1.4,
                     ),
                   ),
@@ -146,7 +136,7 @@ class _StartScreenState extends State<StartScreen> {
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
                         color: Colors.red.withValues(alpha: 0.08),
-                        borderRadius: BorderRadius.circular(14),
+                        borderRadius: BorderRadius.circular(12),
                         border: Border.all(
                             color: Colors.red.withValues(alpha: 0.3)),
                       ),
@@ -169,14 +159,14 @@ class _StartScreenState extends State<StartScreen> {
                             textAlign: TextAlign.center,
                             style: GoogleFonts.inter(
                               fontSize: 13,
-                              color: subtext,
+                              color: AppTheme.secondaryText,
                             ),
                           ),
                           const SizedBox(height: 12),
                           ElevatedButton.icon(
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: AppTheme.dockActiveAmber,
-                              foregroundColor: Colors.black,
+                              backgroundColor: AppTheme.primaryAccent,
+                              foregroundColor: Colors.white,
                             ),
                             onPressed: () => appState.loadGroups(),
                             icon: const Icon(Icons.refresh),
@@ -193,10 +183,6 @@ class _StartScreenState extends State<StartScreen> {
                       value: selectedForm,
                       items: formOptions,
                       onChanged: _onFormChanged,
-                      cardBg: cardBg,
-                      text: text,
-                      subtext: subtext,
-                      divider: divider,
                     ),
                     const SizedBox(height: 20),
 
@@ -209,10 +195,6 @@ class _StartScreenState extends State<StartScreen> {
                       value: selectedCourse,
                       items: courseOptions,
                       onChanged: selectedForm != null ? _onCourseChanged : null,
-                      cardBg: cardBg,
-                      text: text,
-                      subtext: subtext,
-                      divider: divider,
                     ),
                     const SizedBox(height: 20),
 
@@ -225,10 +207,6 @@ class _StartScreenState extends State<StartScreen> {
                       value: selectedGroup,
                       items: groupOptions,
                       onChanged: (v) => setState(() => selectedGroup = v),
-                      cardBg: cardBg,
-                      text: text,
-                      subtext: subtext,
-                      divider: divider,
                     ),
                     const SizedBox(height: 40),
 
@@ -238,14 +216,14 @@ class _StartScreenState extends State<StartScreen> {
                       height: 52,
                       child: ElevatedButton(
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: AppTheme.dockActiveAmber,
-                          foregroundColor: Colors.black,
+                          backgroundColor: AppTheme.primaryAccent,
+                          foregroundColor: Colors.white,
                           disabledBackgroundColor:
-                              AppTheme.dockActiveAmber.withValues(alpha: 0.35),
-                          disabledForegroundColor: Colors.black38,
+                              AppTheme.primaryAccent.withValues(alpha: 0.35),
+                          disabledForegroundColor: Colors.white70,
                           elevation: 0,
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14),
+                            borderRadius: BorderRadius.circular(12),
                           ),
                         ),
                         onPressed: (_canContinue && !_isSubmitting)
@@ -257,7 +235,7 @@ class _StartScreenState extends State<StartScreen> {
                                 height: 22,
                                 child: CircularProgressIndicator(
                                   strokeWidth: 2.5,
-                                  color: Colors.black,
+                                  color: Colors.white,
                                 ),
                               )
                             : Row(
@@ -296,10 +274,6 @@ class _StartScreenState extends State<StartScreen> {
     required String? value,
     required List<String> items,
     required ValueChanged<String?>? onChanged,
-    required Color cardBg,
-    required Color text,
-    required Color subtext,
-    required Color divider,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -309,7 +283,7 @@ class _StartScreenState extends State<StartScreen> {
           style: GoogleFonts.inter(
             fontSize: 13,
             fontWeight: FontWeight.w600,
-            color: text,
+            color: AppTheme.primaryText,
           ),
         ),
         const SizedBox(height: 8),
@@ -320,26 +294,26 @@ class _StartScreenState extends State<StartScreen> {
             hint,
             style: GoogleFonts.inter(
               fontSize: 14,
-              color: subtext,
+              color: AppTheme.secondaryText,
             ),
           ),
           decoration: InputDecoration(
             filled: true,
-            fillColor: cardBg,
+            fillColor: AppTheme.secondaryBackground,
             contentPadding:
                 const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
-              borderSide: BorderSide(color: divider),
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: AppTheme.dividerColor),
             ),
             enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
-              borderSide: BorderSide(color: divider),
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: AppTheme.dividerColor),
             ),
             focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
-              borderSide: const BorderSide(
-                  color: AppTheme.dockActiveAmber, width: 1.5),
+              borderRadius: BorderRadius.circular(12),
+              borderSide:
+                  const BorderSide(color: AppTheme.primaryAccent, width: 1.5),
             ),
           ),
           icon: const Icon(Icons.keyboard_arrow_down_rounded),
@@ -350,7 +324,7 @@ class _StartScreenState extends State<StartScreen> {
                       item,
                       style: GoogleFonts.inter(
                         fontSize: 14,
-                        color: text,
+                        color: AppTheme.primaryText,
                       ),
                     ),
                   ))
@@ -387,7 +361,8 @@ class _StartScreenState extends State<StartScreen> {
 
     try {
       final appState = Provider.of<AppState>(context, listen: false);
-      final group = appState.groups.firstWhere((g) => g.name == selectedGroup);
+      final group =
+          appState.groups.firstWhere((g) => g.name == selectedGroup);
 
       await appState.loadSchedule(group.id, group.name, forceUpdate: true);
 

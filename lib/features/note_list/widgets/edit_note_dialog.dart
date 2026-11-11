@@ -34,9 +34,9 @@ class _EditNoteDialogState extends State<EditNoteDialog> {
   Widget build(BuildContext context) {
     final cardBg = AppTheme.secondaryBg(context);
     final text = AppTheme.text(context);
-    final subtext = AppTheme.subtext(context);
     final surface = AppTheme.surface(context);
     final divider = AppTheme.divider(context);
+    final secText = AppTheme.secondaryTextCol(context);
 
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
@@ -62,6 +62,7 @@ class _EditNoteDialogState extends State<EditNoteDialog> {
               decoration: BoxDecoration(
                 color: surface,
                 borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: divider),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -79,13 +80,14 @@ class _EditNoteDialogState extends State<EditNoteDialog> {
                   const SizedBox(height: 4),
                   Row(
                     children: [
-                      Icon(Icons.event_outlined, size: 14, color: subtext),
+                      Icon(Icons.event_outlined,
+                          size: 14, color: secText),
                       const SizedBox(width: 4),
                       Text(
                         'Срок: ${widget.note.endDate.day.toString().padLeft(2, '0')}.${widget.note.endDate.month.toString().padLeft(2, '0')}.${widget.note.endDate.year} ${widget.note.endLessonTime}',
                         style: GoogleFonts.inter(
                           fontSize: ResponsiveText.small(context),
-                          color: subtext,
+                          color: secText,
                         ),
                       ),
                     ],

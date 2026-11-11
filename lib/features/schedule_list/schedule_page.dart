@@ -78,19 +78,19 @@ class _SchedulePageState extends State<SchedulePage>
   String _getDayShort(int weekday) {
     switch (weekday) {
       case 1:
-        return 'ПН';
+        return 'Пн';
       case 2:
-        return 'ВТ';
+        return 'Вт';
       case 3:
-        return 'СР';
+        return 'Ср';
       case 4:
-        return 'ЧТ';
+        return 'Чт';
       case 5:
-        return 'ПТ';
+        return 'Пт';
       case 6:
-        return 'СБ';
+        return 'Сб';
       case 7:
-        return 'ВС';
+        return 'Вс';
       default:
         return '';
     }
@@ -176,9 +176,29 @@ class _SchedulePageState extends State<SchedulePage>
     final isCurrentWeek =
         AppState.getMondayOfWeek(now) == AppState.getMondayOfWeek(weekStart);
 
-    final weekDateList =
+    final allWeekDates =
         List.generate(7, (i) => weekStart.add(Duration(days: i)));
     final weekDays = appState.currentWeekDays;
+
+    // Filter days for dock: only show days with lessons if hideEmptyDays is enabled (Request 4)
+    List<DateTime> visibleDockDates = allWeekDates;
+    if (appState.hideEmptyDays) {
+      final daysWithLessons = allWeekDates.where((date) {
+        final dateStr =
+            '${date.day.toString().padLeft(2, '0')}.${date.month.toString().padLeft(2, '0')}.${date.year}';
+        final daySchedule =
+            weekDays.where((d) => d.date == dateStr).firstOrNull;
+        final isToday = date.year == now.year &&
+            date.month == now.month &&
+            date.day == now.day;
+        return (daySchedule != null && daySchedule.lessons.isNotEmpty) ||
+            isToday;
+      }).toList();
+
+      if (daysWithLessons.isNotEmpty) {
+        visibleDockDates = daysWithLessons;
+      }
+    }
 
     // Determine current selected day date
     DateTime activeDate = now;
@@ -193,27 +213,71 @@ class _SchedulePageState extends State<SchedulePage>
       }
     }
 
+    final isDockVisible = appState.isDockVisible;
+
     return Scaffold(
       backgroundColor: bg,
       body: SafeArea(
         child: Row(
           children: [
-            // ==================== LEFT VERTICAL RAIL (DOCK) ====================
-            _buildLeftDock(
-              context,
-              appState,
-              weekDateList,
-              weekDays,
-              now,
-              notesProvider.notes.length,
+            // ==================== COLLAPSIBLE LEFT DOCK (Request 1) ====================
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 250),
+              curve: Curves.easeInOut,
+              width: isDockVisible ? 62 : 0,
+              child: ClipRect(
+                child: OverflowBox(
+                  minWidth: 62,
+                  maxWidth: 62,
+                  alignment: Alignment.centerLeft,
+                  child: _buildLeftDock(
+                    context,
+                    appState,
+                    visibleDockDates,
+                    weekDays,
+                    now,
+                    notesProvider.notes.length,
+                  ),
+                ),
+              ),
             ),
+
+            // If dock is hidden, show a subtle floating expand tab on left edge
+            if (!isDockVisible)
+              GestureDetector(
+                onTap: () => appState.toggleDockVisible(),
+                child: Container(
+                  width: 14,
+                  height: 64,
+                  margin: const EdgeInsets.symmetric(vertical: 8),
+                  decoration: BoxDecoration(
+                    color: AppTheme.dockBg,
+                    borderRadius: const BorderRadius.horizontal(
+                      right: Radius.circular(10),
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.15),
+                        blurRadius: 4,
+                      ),
+                    ],
+                  ),
+                  child: const Center(
+                    child: Icon(
+                      Icons.chevron_right_rounded,
+                      color: AppTheme.dockActiveAmber,
+                      size: 14,
+                    ),
+                  ),
+                ),
+              ),
 
             // ==================== MAIN CONTENT AREA ====================
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // Header with Date Badge & Title
+                  // Header with Date Badge, Title, and Date Selection UNDER "Расписание" (Request 2)
                   _buildHeader(
                     context,
                     appState,
@@ -231,7 +295,8 @@ class _SchedulePageState extends State<SchedulePage>
                     child: RefreshIndicator(
                       onRefresh: _handleRefresh,
                       color: AppTheme.dockActiveAmber,
-                      child: _buildLessonTimeline(appState, weekDays, text, subtext),
+                      child: _buildLessonTimeline(
+                          appState, weekDays, text, subtext),
                     ),
                   ),
                 ],
@@ -247,28 +312,28 @@ class _SchedulePageState extends State<SchedulePage>
   Widget _buildLeftDock(
     BuildContext context,
     AppState appState,
-    List<DateTime> weekDateList,
+    List<DateTime> visibleDockDates,
     List<DaySchedule> weekDays,
     DateTime now,
     int notesCount,
   ) {
     return Container(
       width: 62,
-      margin: const EdgeInsets.fromLTRB(10, 10, 0, 10),
+      margin: const EdgeInsets.fromLTRB(8, 8, 0, 8),
       decoration: BoxDecoration(
         color: AppTheme.dockBg,
-        borderRadius: BorderRadius.circular(28),
+        borderRadius: BorderRadius.circular(26),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.18),
-            blurRadius: 12,
+            blurRadius: 10,
             offset: const Offset(2, 4),
           ),
         ],
       ),
       child: Column(
         children: [
-          const SizedBox(height: 14),
+          const SizedBox(height: 12),
 
           // Top Icon: 4-square App / Menu button
           InkWell(
@@ -280,25 +345,24 @@ class _SchedulePageState extends State<SchedulePage>
             },
             borderRadius: BorderRadius.circular(12),
             child: Container(
-              width: 38,
-              height: 38,
+              width: 36,
+              height: 36,
               decoration: BoxDecoration(
                 color: Colors.white.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(10),
               ),
               child: const Icon(
                 Icons.grid_view_rounded,
                 color: Colors.white,
-                size: 20,
+                size: 18,
               ),
             ),
           ),
 
           const Spacer(),
 
-          // Center: The 7 days of the week (M, T, W, T, F, S, S)
-          ...List.generate(7, (index) {
-            final date = weekDateList[index];
+          // Center: The visible days of the week
+          ...visibleDockDates.map((date) {
             final dateStr =
                 '${date.day.toString().padLeft(2, '0')}.${date.month.toString().padLeft(2, '0')}.${date.year}';
             final dayName = _getDayFullName(date.weekday);
@@ -319,7 +383,7 @@ class _SchedulePageState extends State<SchedulePage>
             final letter = _getDaySingleLetter(date.weekday);
 
             return Padding(
-              padding: const EdgeInsets.symmetric(vertical: 4),
+              padding: const EdgeInsets.symmetric(vertical: 3),
               child: InkWell(
                 onTap: () {
                   appState.selectDay(dayName, dateStr: dateStr);
@@ -332,8 +396,8 @@ class _SchedulePageState extends State<SchedulePage>
                     // Day pill
                     AnimatedContainer(
                       duration: const Duration(milliseconds: 200),
-                      width: 40,
-                      height: 40,
+                      width: 38,
+                      height: 38,
                       decoration: BoxDecoration(
                         color: isSelected
                             ? AppTheme.dockActiveAmber
@@ -370,10 +434,10 @@ class _SchedulePageState extends State<SchedulePage>
                     // Active pointer / tab notch pointing to schedule (Image 1)
                     if (isSelected)
                       Positioned(
-                        right: -10,
+                        right: -8,
                         child: Container(
-                          width: 5,
-                          height: 14,
+                          width: 4,
+                          height: 12,
                           decoration: const BoxDecoration(
                             color: AppTheme.dockActiveAmber,
                             borderRadius: BorderRadius.horizontal(
@@ -414,7 +478,7 @@ class _SchedulePageState extends State<SchedulePage>
                 icon: const Icon(
                   Icons.edit_note_rounded,
                   color: Colors.white,
-                  size: 26,
+                  size: 24,
                 ),
                 onPressed: () => Navigator.pushNamed(context, '/notes'),
               ),
@@ -423,20 +487,20 @@ class _SchedulePageState extends State<SchedulePage>
                   right: 6,
                   top: 6,
                   child: Container(
-                    padding: const EdgeInsets.all(4),
+                    padding: const EdgeInsets.all(3),
                     decoration: const BoxDecoration(
                       color: AppTheme.dockActiveAmber,
                       shape: BoxShape.circle,
                     ),
                     constraints: const BoxConstraints(
-                      minWidth: 16,
-                      minHeight: 16,
+                      minWidth: 14,
+                      minHeight: 14,
                     ),
                     child: Text(
                       notesCount > 9 ? '9+' : '$notesCount',
                       style: const TextStyle(
                         color: Colors.black,
-                        fontSize: 9,
+                        fontSize: 8,
                         fontWeight: FontWeight.w800,
                       ),
                       textAlign: TextAlign.center,
@@ -452,18 +516,21 @@ class _SchedulePageState extends State<SchedulePage>
             icon: const Icon(
               Icons.settings_outlined,
               color: AppTheme.dockItemInactive,
-              size: 22,
+              size: 20,
             ),
             onPressed: () => Navigator.pushNamed(context, '/settings'),
           ),
 
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
         ],
       ),
     );
   }
 
-  /// Header matching Image 1: top date badge on right, bold Title on left
+  /// Header with:
+  /// 1. Top row: Toggle Dock button, Group pill, Refresh button, Date badge
+  /// 2. Title: "Расписание"
+  /// 3. UNDER "Расписание": Week Selector strip (Request 2)
   Widget _buildHeader(
     BuildContext context,
     AppState appState,
@@ -476,55 +543,79 @@ class _SchedulePageState extends State<SchedulePage>
     Color divider,
   ) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Top Row: Group chip, Refresh button, Date Badge (Tues Aug 20 18 in Image 1)
+          // Row 1: Left actions (Sidebar Toggle, Group Pill, Refresh) & Right Date Badge
           Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
+              // Sidebar toggle button (Request 1)
+              IconButton(
+                tooltip: appState.isDockVisible
+                    ? 'Скрыть панель дней'
+                    : 'Показать панель дней',
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                icon: Icon(
+                  appState.isDockVisible
+                      ? Icons.menu_open_rounded
+                      : Icons.menu_rounded,
+                  color: AppTheme.dockActiveAmber,
+                  size: 22,
+                ),
+                onPressed: () => appState.toggleDockVisible(),
+              ),
+              const SizedBox(width: 6),
+
               // Group Pill
-              InkWell(
-                borderRadius: BorderRadius.circular(10),
-                onTap: () => Navigator.pushNamed(context, '/settings'),
-                child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                  decoration: BoxDecoration(
-                    color: AppTheme.surface(context),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: divider),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(
-                        Icons.school_rounded,
-                        size: 15,
-                        color: AppTheme.dockActiveAmber,
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        appState.currentGroupName ?? 'Выбрать группу',
-                        style: GoogleFonts.inter(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                          color: text,
+              Flexible(
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(10),
+                  onTap: () => Navigator.pushNamed(context, '/settings'),
+                  child: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: AppTheme.surface(context),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: divider),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.school_rounded,
+                          size: 14,
+                          color: AppTheme.dockActiveAmber,
                         ),
-                      ),
-                      const SizedBox(width: 4),
-                      Icon(
-                        Icons.keyboard_arrow_down_rounded,
-                        size: 16,
-                        color: subtext,
-                      ),
-                    ],
+                        const SizedBox(width: 6),
+                        Flexible(
+                          child: Text(
+                            appState.currentGroupName ?? 'Выбрать группу',
+                            style: GoogleFonts.inter(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: text,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        Icon(
+                          Icons.keyboard_arrow_down_rounded,
+                          size: 16,
+                          color: subtext,
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
 
-              const SizedBox(width: 8),
+              const SizedBox(width: 6),
 
               // Refresh Button
               IconButton(
@@ -576,7 +667,7 @@ class _SchedulePageState extends State<SchedulePage>
                   Text(
                     '${activeDate.day}',
                     style: GoogleFonts.inter(
-                      fontSize: 32,
+                      fontSize: 30,
                       fontWeight: FontWeight.w800,
                       color: text,
                       height: 0.9,
@@ -587,88 +678,117 @@ class _SchedulePageState extends State<SchedulePage>
             ],
           ),
 
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
 
-          // Title: "Расписание" (Image 1 Schedule)
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                'Расписание',
-                style: GoogleFonts.inter(
-                  fontSize: 28,
-                  fontWeight: FontWeight.w800,
-                  color: text,
-                  letterSpacing: -0.5,
-                ),
-              ),
-
-              // Week Selector strip
-              InkWell(
-                borderRadius: BorderRadius.circular(10),
-                onTap: () {
-                  showDialog(
-                    context: context,
-                    builder: (context) => const HorizontalWeekCalendarDialog(),
-                  );
-                },
-                child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: AppTheme.surface(context),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: divider),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      InkWell(
-                        onTap: () => appState.previousWeek(),
-                        child: Icon(Icons.chevron_left_rounded,
-                            size: 18, color: subtext),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 4),
-                        child: Text(
-                          '${weekStart.day} ${_getMonthShort(weekStart.month)} — ${weekEnd.day} ${_getMonthShort(weekEnd.month)}',
-                          style: GoogleFonts.inter(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                            color: text,
-                          ),
-                        ),
-                      ),
-                      InkWell(
-                        onTap: () => appState.nextWeek(),
-                        child: Icon(Icons.chevron_right_rounded,
-                            size: 18, color: subtext),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
+          // Row 2: Title "Расписание" (Big & Spacious)
+          Text(
+            'Расписание',
+            style: GoogleFonts.inter(
+              fontSize: 28,
+              fontWeight: FontWeight.w800,
+              color: text,
+              letterSpacing: -0.5,
+            ),
           ),
 
-          if (!isCurrentWeek) ...[
-            const SizedBox(height: 6),
-            Align(
-              alignment: Alignment.centerRight,
-              child: InkWell(
-                onTap: () => appState.goToToday(),
-                child: Text(
-                  'Вернуться на текущую неделю',
-                  style: GoogleFonts.inter(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: AppTheme.dockActiveAmber,
+          const SizedBox(height: 8),
+
+          // Row 3: UNDER "Расписание" -> Date / Week Selector Strip (Request 2)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: AppTheme.surface(context),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: divider),
+            ),
+            child: Row(
+              children: [
+                InkWell(
+                  onTap: () => appState.previousWeek(),
+                  borderRadius: BorderRadius.circular(8),
+                  child: Padding(
+                    padding: const EdgeInsets.all(4),
+                    child: Icon(
+                      Icons.chevron_left_rounded,
+                      size: 22,
+                      color: text,
+                    ),
                   ),
                 ),
-              ),
+                const SizedBox(width: 4),
+                Expanded(
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(8),
+                    onTap: () {
+                      showDialog(
+                        context: context,
+                        builder: (context) =>
+                            const HorizontalWeekCalendarDialog(),
+                      );
+                    },
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(
+                            Icons.calendar_today_rounded,
+                            size: 13,
+                            color: AppTheme.dockActiveAmber,
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            '${weekStart.day} ${_getMonthShort(weekStart.month)} — ${weekEnd.day} ${_getMonthShort(weekEnd.month)}',
+                            style: GoogleFonts.inter(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: text,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 4),
+                if (!isCurrentWeek) ...[
+                  InkWell(
+                    onTap: () => appState.goToToday(),
+                    borderRadius: BorderRadius.circular(8),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: AppTheme.dockActiveAmber.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        'Сегодня',
+                        style: GoogleFonts.inter(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: AppTheme.dockActiveAmber,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                ],
+                InkWell(
+                  onTap: () => appState.nextWeek(),
+                  borderRadius: BorderRadius.circular(8),
+                  child: Padding(
+                    padding: const EdgeInsets.all(4),
+                    child: Icon(
+                      Icons.chevron_right_rounded,
+                      size: 22,
+                      color: text,
+                    ),
+                  ),
+                ),
+              ],
             ),
-          ],
+          ),
         ],
       ),
     );

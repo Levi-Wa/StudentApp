@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hive/hive.dart';
 import '../models/full_schedule.dart';
 import '../models/day_schedule.dart';
 import '../models/group.dart';
@@ -20,6 +21,8 @@ class AppState extends ChangeNotifier {
   DateTime? _lastUpdated;
   String? _lastSyncError;
   bool _initialized = false;
+  bool _hideEmptyDays = true;
+  bool _isDockVisible = true;
 
   late DateTime _selectedWeekStart;
 
@@ -38,6 +41,29 @@ class AppState extends ChangeNotifier {
   DateTime? get lastUpdated => _lastUpdated;
   String? get lastSyncError => _lastSyncError;
   DateTime get selectedWeekStart => _selectedWeekStart;
+  bool get hideEmptyDays => _hideEmptyDays;
+  bool get isDockVisible => _isDockVisible;
+
+  Future<void> setHideEmptyDays(bool value) async {
+    _hideEmptyDays = value;
+    notifyListeners();
+    final box = await Hive.openBox('settings');
+    await box.put('hide_empty_days', value);
+  }
+
+  Future<void> toggleDockVisible() async {
+    _isDockVisible = !_isDockVisible;
+    notifyListeners();
+    final box = await Hive.openBox('settings');
+    await box.put('dock_visible', _isDockVisible);
+  }
+
+  Future<void> setDockVisible(bool value) async {
+    _isDockVisible = value;
+    notifyListeners();
+    final box = await Hive.openBox('settings');
+    await box.put('dock_visible', value);
+  }
 
   static DateTime normalizeDate(DateTime dt) =>
       DateTime(dt.year, dt.month, dt.day);
@@ -279,6 +305,10 @@ class AppState extends ChangeNotifier {
     notifyListeners();
 
     try {
+      final settingsBox = await Hive.openBox('settings');
+      _hideEmptyDays = settingsBox.get('hide_empty_days', defaultValue: true);
+      _isDockVisible = settingsBox.get('dock_visible', defaultValue: true);
+
       final groupId = await _repository.getSavedGroupId();
       final groupName = await _repository.getSavedGroupName();
 

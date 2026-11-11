@@ -162,12 +162,15 @@ class _NotePageState extends State<NotePage> {
               )
             : Row(
                 children: [
-                  Text(
-                    'Заметки',
-                    style: GoogleFonts.inter(
-                      fontSize: 24,
-                      fontWeight: FontWeight.w800,
-                      color: text,
+                  Flexible(
+                    child: Text(
+                      'Заметки',
+                      style: GoogleFonts.inter(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w800,
+                        color: text,
+                      ),
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
                   const Spacer(),
@@ -201,7 +204,7 @@ class _NotePageState extends State<NotePage> {
                       Text(
                         '${now.day}',
                         style: GoogleFonts.inter(
-                          fontSize: 26,
+                          fontSize: 24,
                           fontWeight: FontWeight.w800,
                           color: text,
                           height: 0.9,

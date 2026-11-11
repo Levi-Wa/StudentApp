@@ -194,7 +194,9 @@ class _DateFilterState extends State<DateFilter> {
                     decoration: BoxDecoration(
                       color: isSelected
                           ? Colors.black
-                          : (isToday ? AppTheme.dockActiveAmber : Colors.transparent),
+                          : (isToday
+                              ? AppTheme.dockActiveAmber
+                              : Colors.transparent),
                       shape: BoxShape.circle,
                     ),
                   ),

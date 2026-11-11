@@ -26,6 +26,7 @@ dependencies:
   flutter_slidable: ^4.0.3
   url_launcher: ^6.3.2
   package_info_plus: ^10.2.2
+  open_filex: ^4.7.0
 
 
 dev_dependencies:
