@@ -695,7 +695,7 @@ class _SchedulePageState extends State<SchedulePage>
     Color divider,
   ) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
+      padding: const EdgeInsets.fromLTRB(12, 10, 14, 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -721,50 +721,54 @@ class _SchedulePageState extends State<SchedulePage>
               ),
               const SizedBox(width: 6),
 
-              // Group Pill
-              InkWell(
-                borderRadius: BorderRadius.circular(10),
-                onTap: () => Navigator.pushNamed(context, '/settings'),
-                child: Container(
-                  constraints: const BoxConstraints(maxWidth: 140),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-                  decoration: BoxDecoration(
-                    color: AppTheme.surface(context),
+              // Group Pill (wrapped in Expanded so it never pushes the Date Badge off-screen)
+              Expanded(
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: InkWell(
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: divider),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(
-                        Icons.school_rounded,
-                        size: 14,
-                        color: AppTheme.dockActiveAmber,
+                    onTap: () => Navigator.pushNamed(context, '/settings'),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 5),
+                      decoration: BoxDecoration(
+                        color: AppTheme.surface(context),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: divider),
                       ),
-                      const SizedBox(width: 5),
-                      Flexible(
-                        child: Text(
-                          (appState.currentGroupName != null &&
-                                  appState.currentGroupName!.trim().isNotEmpty)
-                              ? appState.currentGroupName!
-                              : 'Выбрать группу',
-                          style: GoogleFonts.inter(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                            color: text,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            Icons.school_rounded,
+                            size: 14,
+                            color: AppTheme.dockActiveAmber,
                           ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
+                          const SizedBox(width: 5),
+                          Flexible(
+                            child: Text(
+                              (appState.currentGroupName != null &&
+                                      appState.currentGroupName!.trim().isNotEmpty)
+                                  ? appState.currentGroupName!
+                                  : 'Выбрать группу',
+                              style: GoogleFonts.inter(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                color: text,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          const SizedBox(width: 3),
+                          Icon(
+                            Icons.keyboard_arrow_down_rounded,
+                            size: 16,
+                            color: subtext,
+                          ),
+                        ],
                       ),
-                      const SizedBox(width: 3),
-                      Icon(
-                        Icons.keyboard_arrow_down_rounded,
-                        size: 16,
-                        color: subtext,
-                      ),
-                    ],
+                    ),
                   ),
                 ),
               ),
@@ -789,20 +793,22 @@ class _SchedulePageState extends State<SchedulePage>
                 onPressed: appState.isRefreshing ? null : _handleRefresh,
               ),
 
-              const Spacer(),
+              const SizedBox(width: 10),
 
               // Right Date Badge: Day + Month + Big Date Number (Image 1 style)
               Row(
+                mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.baseline,
                 textBaseline: TextBaseline.alphabetic,
                 children: [
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.end,
+                    mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
                         _getDayShort(activeDate.weekday),
                         style: GoogleFonts.inter(
-                          fontSize: 11,
+                          fontSize: 10.5,
                           fontWeight: FontWeight.w600,
                           color: subtext,
                         ),
@@ -810,18 +816,18 @@ class _SchedulePageState extends State<SchedulePage>
                       Text(
                         _getMonthShort(activeDate.month),
                         style: GoogleFonts.inter(
-                          fontSize: 11,
+                          fontSize: 10.5,
                           fontWeight: FontWeight.w500,
                           color: subtext,
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(width: 6),
+                  const SizedBox(width: 5),
                   Text(
                     '${activeDate.day}',
                     style: GoogleFonts.inter(
-                      fontSize: 30,
+                      fontSize: 26,
                       fontWeight: FontWeight.w800,
                       color: text,
                       height: 0.9,
