@@ -89,157 +89,242 @@ class _EditNoteDialogState extends State<EditNoteDialog> {
   Widget build(BuildContext context) {
     final cardBg = AppTheme.secondaryBg(context);
     final text = AppTheme.text(context);
+    final subtext = AppTheme.subtext(context);
     final surface = AppTheme.surface(context);
     final divider = AppTheme.divider(context);
 
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
       backgroundColor: cardBg,
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(22),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              'Редактировать заметку',
-              style: GoogleFonts.inter(
-                fontSize: ResponsiveText.title(context),
-                fontWeight: FontWeight.w700,
-                color: text,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: surface,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: divider),
-              ),
-              child: Text(
-                widget.note.disc,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.85,
+        ),
+        child: SingleChildScrollView(
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+          padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'Редактировать заметку',
                 style: GoogleFonts.inter(
-                  fontSize: ResponsiveText.subtitle(context),
+                  fontSize: ResponsiveText.title(context),
                   fontWeight: FontWeight.w700,
                   color: text,
                 ),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
               ),
-            ),
-            const SizedBox(height: 14),
+              const SizedBox(height: 14),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: surface,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: divider),
+                ),
+                child: Text(
+                  widget.note.disc,
+                  style: GoogleFonts.inter(
+                    fontSize: ResponsiveText.subtitle(context),
+                    fontWeight: FontWeight.w700,
+                    color: text,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const SizedBox(height: 12),
 
-            // Date & Time pickers
-            Row(
-              children: [
-                Expanded(
-                  flex: 3,
-                  child: TextField(
-                    controller: _dateController,
-                    decoration: InputDecoration(
-                      labelText: 'Дата сдачи',
-                      suffixIcon:
-                          const Icon(Icons.calendar_today_rounded, size: 18),
-                      filled: true,
-                      fillColor: surface,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(color: divider),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(color: divider),
+              // Date & Time pickers (Compact tiles, no clipping)
+              Row(
+                children: [
+                  // Date picker tile
+                  Expanded(
+                    flex: 3,
+                    child: InkWell(
+                      onTap: _selectDate,
+                      borderRadius: BorderRadius.circular(12),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 9),
+                        decoration: BoxDecoration(
+                          color: surface,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: divider),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Дата сдачи',
+                              style: GoogleFonts.inter(
+                                fontSize: 10.5,
+                                fontWeight: FontWeight.w500,
+                                color: subtext,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    _dateController.text.isNotEmpty
+                                        ? _dateController.text
+                                        : 'Выберите дату',
+                                    style: GoogleFonts.inter(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                      color: text,
+                                    ),
+                                    maxLines: 1,
+                                  ),
+                                ),
+                                const Icon(Icons.calendar_today_rounded,
+                                    size: 14, color: AppTheme.dockActiveAmber),
+                              ],
+                            ),
+                          ],
+                        ),
                       ),
                     ),
-                    readOnly: true,
-                    onTap: _selectDate,
                   ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  flex: 2,
-                  child: TextField(
-                    controller: _timeController,
-                    decoration: InputDecoration(
-                      labelText: 'Время',
-                      suffixIcon:
-                          const Icon(Icons.access_time_rounded, size: 18),
-                      filled: true,
-                      fillColor: surface,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(color: divider),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(color: divider),
+                  const SizedBox(width: 8),
+
+                  // Time picker tile
+                  Expanded(
+                    flex: 2,
+                    child: InkWell(
+                      onTap: _selectTime,
+                      borderRadius: BorderRadius.circular(12),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 9),
+                        decoration: BoxDecoration(
+                          color: surface,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: divider),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Время',
+                              style: GoogleFonts.inter(
+                                fontSize: 10.5,
+                                fontWeight: FontWeight.w500,
+                                color: subtext,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    _timeController.text.isNotEmpty
+                                        ? _timeController.text
+                                        : '09:00',
+                                    style: GoogleFonts.inter(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                      color: text,
+                                    ),
+                                    maxLines: 1,
+                                  ),
+                                ),
+                                const Icon(Icons.access_time_rounded,
+                                    size: 14, color: AppTheme.dockActiveAmber),
+                              ],
+                            ),
+                          ],
+                        ),
                       ),
                     ),
-                    readOnly: true,
-                    onTap: _selectTime,
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 14),
-            TextField(
-              controller: _textController,
-              decoration: InputDecoration(
-                labelText: 'Текст заметки',
-                filled: true,
-                fillColor: surface,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: divider),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: divider),
-                ),
+                ],
               ),
-              maxLines: 4,
-              keyboardType: TextInputType.multiline,
-              textInputAction: TextInputAction.newline,
-            ),
-            const SizedBox(height: 20),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    style: OutlinedButton.styleFrom(
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    onPressed: () => Navigator.pop(context),
-                    child: const Text('Отмена'),
+              const SizedBox(height: 14),
+
+              // Note text
+              TextField(
+                controller: _textController,
+                decoration: InputDecoration(
+                  labelText: 'Текст заметки',
+                  filled: true,
+                  fillColor: surface,
+                  contentPadding: const EdgeInsets.all(12),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: divider),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: divider),
                   ),
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: FilledButton(
-                    style: FilledButton.styleFrom(
-                      backgroundColor: AppTheme.dockActiveAmber,
-                      foregroundColor: Colors.black,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+                minLines: 2,
+                maxLines: 3,
+                keyboardType: TextInputType.multiline,
+                textInputAction: TextInputAction.newline,
+              ),
+              const SizedBox(height: 18),
+
+              // Action buttons
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      onPressed: () => Navigator.pop(context),
+                      child: Text(
+                        'Отмена',
+                        style: GoogleFonts.inter(
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        maxLines: 1,
                       ),
                     ),
-                    onPressed: () {
-                      FocusScope.of(context).unfocus();
-                      _saveNote();
-                    },
-                    child: Text(
-                      'Сохранить',
-                      style: GoogleFonts.inter(fontWeight: FontWeight.w700),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: FilledButton(
+                      style: FilledButton.styleFrom(
+                        backgroundColor: AppTheme.dockActiveAmber,
+                        foregroundColor: Colors.black,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      onPressed: () {
+                        FocusScope.of(context).unfocus();
+                        _saveNote();
+                      },
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          'Сохранить',
+                          style: GoogleFonts.inter(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 14,
+                          ),
+                          maxLines: 1,
+                        ),
+                      ),
                     ),
                   ),
-                ),
-              ],
-            ),
-          ],
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
