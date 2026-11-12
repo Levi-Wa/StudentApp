@@ -32,7 +32,7 @@ class _SettingsPageState extends State<SettingsPage> {
   Group? _selectedGroup;
 
   // App Update state
-  String _currentAppVersion = '1.0.1';
+  String _currentAppVersion = '1.0.4';
   bool _isCheckingUpdate = false;
   String? _updateStatusMessage;
   AppUpdateInfo? _availableUpdate;
@@ -172,7 +172,7 @@ class _SettingsPageState extends State<SettingsPage> {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         children: [
           // App Update Section
-          _buildUpdateSection(cardBg, surface, text, subtext, divider),
+          _buildUpdateSection(appState, cardBg, surface, text, subtext, divider),
           const SizedBox(height: 16),
 
           // Current Group info & changer
@@ -208,6 +208,7 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Widget _buildUpdateSection(
+    AppState appState,
     Color cardBg,
     Color surface,
     Color text,
@@ -275,8 +276,52 @@ class _SettingsPageState extends State<SettingsPage> {
               height: 1.35,
             ),
           ),
+          const Divider(height: 24),
+
+          // 1. Switch: Check updates notify (Request 2.1)
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: Text(
+              'Уведомления об обновлениях',
+              style: GoogleFonts.inter(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: text,
+              ),
+            ),
+            subtitle: Text(
+              'Показывать окно при появлении новой версии на GitHub',
+              style: GoogleFonts.inter(fontSize: 12, color: subtext),
+            ),
+            value: appState.checkUpdatesNotify,
+            activeThumbColor: AppTheme.dockActiveAmber,
+            activeTrackColor: AppTheme.dockActiveAmber.withValues(alpha: 0.4),
+            onChanged: (val) => appState.setCheckUpdatesNotify(val),
+          ),
+
+          // 2. Switch: Auto update (Request 2.2)
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: Text(
+              'Автообновление',
+              style: GoogleFonts.inter(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: text,
+              ),
+            ),
+            subtitle: Text(
+              'Автоматически скачивать новый APK в фоне и предлагать установку',
+              style: GoogleFonts.inter(fontSize: 12, color: subtext),
+            ),
+            value: appState.autoUpdateEnabled,
+            activeThumbColor: AppTheme.dockActiveAmber,
+            activeTrackColor: AppTheme.dockActiveAmber.withValues(alpha: 0.4),
+            onChanged: (val) => appState.setAutoUpdateEnabled(val),
+          ),
+
+          const Divider(height: 20),
           if (_updateStatusMessage != null) ...[
-            const SizedBox(height: 10),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
@@ -310,8 +355,8 @@ class _SettingsPageState extends State<SettingsPage> {
                 ],
               ),
             ),
+            const SizedBox(height: 12),
           ],
-          const SizedBox(height: 14),
           Row(
             children: [
               Expanded(

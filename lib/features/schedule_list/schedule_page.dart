@@ -42,9 +42,21 @@ class _SchedulePageState extends State<SchedulePage>
     if (_hasCheckedUpdate) return;
     _hasCheckedUpdate = true;
     try {
+      final appState = Provider.of<AppState>(context, listen: false);
+      // Skip checking if both notifications and auto-update are disabled
+      if (!appState.checkUpdatesNotify && !appState.autoUpdateEnabled) {
+        return;
+      }
+
       final info = await UpdateService().checkForUpdate();
       if (mounted && info != null && info.hasUpdate) {
-        UpdateService.showUpdateModal(context, info);
+        if (appState.autoUpdateEnabled) {
+          // Auto-update: silently download and trigger installation
+          UpdateService.performAutoUpdate(context, info.downloadUrl);
+        } else if (appState.checkUpdatesNotify) {
+          // Manual prompt modal
+          UpdateService.showUpdateModal(context, info);
+        }
       }
     } catch (_) {}
   }

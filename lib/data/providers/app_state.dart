@@ -27,6 +27,8 @@ class AppState extends ChangeNotifier {
   bool _hasNetworkConflict = false;
   String _offlineBehavior = 'ask'; // 'ask', 'always_offline', 'disabled'
   bool _daily17CheckEnabled = true;
+  bool _checkUpdatesNotify = true;
+  bool _autoUpdateEnabled = false;
 
   late DateTime _selectedWeekStart;
 
@@ -51,10 +53,26 @@ class AppState extends ChangeNotifier {
   bool get hasNetworkConflict => _hasNetworkConflict;
   String get offlineBehavior => _offlineBehavior;
   bool get daily17CheckEnabled => _daily17CheckEnabled;
+  bool get checkUpdatesNotify => _checkUpdatesNotify;
+  bool get autoUpdateEnabled => _autoUpdateEnabled;
 
   void setOfflineMode(bool value) {
     _isOfflineMode = value;
     notifyListeners();
+  }
+
+  Future<void> setCheckUpdatesNotify(bool value) async {
+    _checkUpdatesNotify = value;
+    notifyListeners();
+    final box = await Hive.openBox('settings');
+    await box.put('check_updates_notify', value);
+  }
+
+  Future<void> setAutoUpdateEnabled(bool value) async {
+    _autoUpdateEnabled = value;
+    notifyListeners();
+    final box = await Hive.openBox('settings');
+    await box.put('auto_update_enabled', value);
   }
 
   Future<void> setOfflineBehavior(String value) async {
@@ -348,6 +366,10 @@ class AppState extends ChangeNotifier {
           settingsBox.get('offline_behavior', defaultValue: 'ask');
       _daily17CheckEnabled =
           settingsBox.get('daily_17_check', defaultValue: true);
+      _checkUpdatesNotify =
+          settingsBox.get('check_updates_notify', defaultValue: true);
+      _autoUpdateEnabled =
+          settingsBox.get('auto_update_enabled', defaultValue: false);
 
       final groupId = await _repository.getSavedGroupId();
       final groupName = await _repository.getSavedGroupName();

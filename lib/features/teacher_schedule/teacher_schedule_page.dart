@@ -20,6 +20,9 @@ class TeacherSchedulePage extends StatefulWidget {
 
 class _TeacherSchedulePageState extends State<TeacherSchedulePage> {
   final TeacherService _teacherService = TeacherService();
+  final ScrollController _scrollController = ScrollController();
+  final GlobalKey _todayKey = GlobalKey();
+
   bool _isLoading = true;
   String? _error;
   List<TeacherDaySchedule> _scheduleDays = [];
@@ -28,6 +31,12 @@ class _TeacherSchedulePageState extends State<TeacherSchedulePage> {
   void initState() {
     super.initState();
     _loadSchedule();
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadSchedule() async {
@@ -46,6 +55,11 @@ class _TeacherSchedulePageState extends State<TeacherSchedulePage> {
           _scheduleDays = days;
           _isLoading = false;
         });
+
+        // Auto-scroll to today once layout is rendered
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _scrollToToday(animated: false);
+        });
       }
     } catch (e) {
       if (mounted) {
@@ -53,6 +67,75 @@ class _TeacherSchedulePageState extends State<TeacherSchedulePage> {
           _error = 'Не удалось загрузить расписание преподавателя: $e';
           _isLoading = false;
         });
+      }
+    }
+  }
+
+  DateTime? _parseDate(String rawDate) {
+    try {
+      if (rawDate.contains('-')) {
+        final parts = rawDate.split('-');
+        if (parts.length == 3) {
+          return DateTime(
+            int.parse(parts[0]),
+            int.parse(parts[1]),
+            int.parse(parts[2]),
+          );
+        }
+      } else if (rawDate.contains('.')) {
+        final parts = rawDate.split('.');
+        if (parts.length == 3) {
+          return DateTime(
+            int.parse(parts[2]),
+            int.parse(parts[1]),
+            int.parse(parts[0]),
+          );
+        }
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  bool _isToday(String rawDate) {
+    final d = _parseDate(rawDate);
+    if (d == null) return false;
+    final now = DateTime.now();
+    return d.year == now.year && d.month == now.month && d.day == now.day;
+  }
+
+  void _scrollToToday({bool animated = true}) {
+    if (!mounted) return;
+
+    if (_todayKey.currentContext != null) {
+      Scrollable.ensureVisible(
+        _todayKey.currentContext!,
+        duration: Duration(milliseconds: animated ? 450 : 50),
+        curve: Curves.easeInOutCubic,
+        alignment: 0.05,
+      );
+    } else if (_scheduleDays.isNotEmpty && _scrollController.hasClients) {
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+      int targetIndex = 0;
+      for (int i = 0; i < _scheduleDays.length; i++) {
+        final d = _parseDate(_scheduleDays[i].date);
+        if (d != null && !d.isBefore(today)) {
+          targetIndex = i;
+          break;
+        }
+      }
+      final offset = (targetIndex * 220.0).clamp(
+        0.0,
+        _scrollController.position.maxScrollExtent,
+      );
+      if (animated) {
+        _scrollController.animateTo(
+          offset,
+          duration: const Duration(milliseconds: 400),
+          curve: Curves.easeInOut,
+        );
+      } else {
+        _scrollController.jumpTo(offset);
       }
     }
   }
@@ -110,6 +193,11 @@ class _TeacherSchedulePageState extends State<TeacherSchedulePage> {
           ],
         ),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.today_rounded, color: AppTheme.dockActiveAmber),
+            tooltip: 'К сегодняшнему дню',
+            onPressed: () => _scrollToToday(animated: true),
+          ),
           IconButton(
             icon: const Icon(Icons.refresh_rounded, color: AppTheme.dockActiveAmber),
             tooltip: 'Обновить',
@@ -200,6 +288,7 @@ class _TeacherSchedulePageState extends State<TeacherSchedulePage> {
     }
 
     return ListView.builder(
+      controller: _scrollController,
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
       itemCount: _scheduleDays.length,
       itemBuilder: (context, index) {
@@ -217,16 +306,24 @@ class _TeacherSchedulePageState extends State<TeacherSchedulePage> {
     Color surface,
     Color divider,
   ) {
+    final isToday = _isToday(day.date);
+
     return Container(
+      key: isToday ? _todayKey : null,
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
         color: cardBg,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: divider),
+        border: Border.all(
+          color: isToday ? AppTheme.dockActiveAmber : divider,
+          width: isToday ? 2.0 : 1.0,
+        ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 10,
+            color: isToday
+                ? AppTheme.dockActiveAmber.withValues(alpha: 0.22)
+                : Colors.black.withValues(alpha: 0.04),
+            blurRadius: isToday ? 16 : 10,
             offset: const Offset(0, 3),
           ),
         ],
@@ -238,8 +335,10 @@ class _TeacherSchedulePageState extends State<TeacherSchedulePage> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
-              color: surface,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+              color: isToday
+                  ? AppTheme.dockActiveAmber.withValues(alpha: 0.12)
+                  : surface,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
             ),
             child: Row(
               children: [
@@ -267,13 +366,33 @@ class _TeacherSchedulePageState extends State<TeacherSchedulePage> {
                     color: text,
                   ),
                 ),
+                if (isToday) ...[
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 7, vertical: 2.5),
+                    decoration: BoxDecoration(
+                      color: AppTheme.dockActiveAmber,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      'СЕГОДНЯ',
+                      style: GoogleFonts.inter(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w900,
+                        color: Colors.black,
+                        letterSpacing: 0.4,
+                      ),
+                    ),
+                  ),
+                ],
                 const Spacer(),
                 Text(
                   _formatDate(day.date),
                   style: GoogleFonts.inter(
                     fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: subtext,
+                    fontWeight: isToday ? FontWeight.w800 : FontWeight.w600,
+                    color: isToday ? AppTheme.dockActiveAmber : subtext,
                   ),
                 ),
               ],

@@ -47,11 +47,18 @@ class UpdateService {
     ),
   );
 
+  /// Extracts semantic version string (e.g. "1.0.4") from arbitrary text (like "v1.0.4", "Urse 1.0.4", "Release 1.0.4")
+  static String extractVersion(String? text) {
+    if (text == null || text.trim().isEmpty) return '';
+    final match = RegExp(r'(\d+\.\d+(?:\.\d+)?)').firstMatch(text);
+    return match?.group(1) ?? '';
+  }
+
   /// Compares semantic versions (e.g. "1.0.2" vs "1.0.1").
   /// Returns 1 if v1 > v2, -1 if v1 < v2, 0 if equal.
   static int compareVersions(String v1, String v2) {
-    final cleanV1 = v1.replaceAll(RegExp(r'[^0-9.]'), '');
-    final cleanV2 = v2.replaceAll(RegExp(r'[^0-9.]'), '');
+    final cleanV1 = extractVersion(v1);
+    final cleanV2 = extractVersion(v2);
 
     final parts1 =
         cleanV1.split('.').map((e) => int.tryParse(e) ?? 0).toList();
@@ -76,10 +83,12 @@ class UpdateService {
 
   /// Checks if an update is available on GitHub
   Future<AppUpdateInfo?> checkForUpdate() async {
-    String currentVersion = '1.0.1';
+    String currentVersion = '1.0.4';
     try {
       final packageInfo = await PackageInfo.fromPlatform();
-      currentVersion = packageInfo.version;
+      if (packageInfo.version.isNotEmpty) {
+        currentVersion = packageInfo.version;
+      }
     } catch (_) {}
 
     // 1. Try GitHub Releases API first
@@ -87,11 +96,21 @@ class UpdateService {
       final response = await _dio.get(githubReleasesApi);
       if (response.statusCode == 200 && response.data != null) {
         final data = response.data;
-        final tagName =
-            (data['tag_name'] as String? ?? '').replaceAll('v', '').trim();
+        final rawTag = data['tag_name'] as String? ?? '';
+        final rawName = data['name'] as String? ?? '';
         final body = data['body'] as String? ??
             'Новая версия приложения готова к установке.';
-        final title = data['name'] as String? ?? 'Обновление $tagName';
+
+        // Extract semantic version: try tag first, then name
+        String latestVer = extractVersion(rawTag);
+        if (latestVer.isEmpty) {
+          latestVer = extractVersion(rawName);
+        }
+        if (latestVer.isEmpty) {
+          latestVer = rawTag.replaceAll('v', '').trim();
+        }
+
+        final title = rawName.isNotEmpty ? rawName : 'Обновление v$latestVer';
 
         // Search for APK in release assets
         String downloadUrl = data['html_url'] as String? ??
@@ -108,9 +127,9 @@ class UpdateService {
           }
         }
 
-        final isNewer = compareVersions(tagName, currentVersion) > 0;
+        final isNewer = compareVersions(latestVer, currentVersion) > 0;
         return AppUpdateInfo(
-          latestVersion: tagName,
+          latestVersion: latestVer,
           latestVersionCode: 0,
           currentVersion: currentVersion,
           releaseNotes: body,
@@ -129,13 +148,22 @@ class UpdateService {
             ? jsonDecode(response.data as String)
             : response.data as Map<String, dynamic>;
 
-        final latestVer = (data['version'] as String? ?? currentVersion).trim();
+        final rawVer = data['version'] as String? ?? '';
+        final rawTitle = data['title'] as String? ?? '';
+        String latestVer = extractVersion(rawVer);
+        if (latestVer.isEmpty) {
+          latestVer = extractVersion(rawTitle);
+        }
+        if (latestVer.isEmpty) {
+          latestVer = rawVer.isNotEmpty ? rawVer : currentVersion;
+        }
+
         final latestCode = (data['version_code'] as num?)?.toInt() ?? 0;
         final downloadUrl = data['download_url'] as String? ??
             'https://github.com/$githubOwner/$githubRepo/releases';
         final notes = data['release_notes'] as String? ??
             'Доступна свежая версия приложения.';
-        final title = data['title'] as String? ?? 'Обновление v$latestVer';
+        final title = rawTitle.isNotEmpty ? rawTitle : 'Обновление v$latestVer';
 
         final isNewer = compareVersions(latestVer, currentVersion) > 0;
         return AppUpdateInfo(
@@ -151,6 +179,31 @@ class UpdateService {
     } catch (_) {}
 
     return null;
+  }
+
+  /// Silently downloads APK in background for auto-update and triggers package installer
+  static Future<void> performAutoUpdate(
+      BuildContext context, String downloadUrl) async {
+    try {
+      final dir = await getTemporaryDirectory();
+      final savePath = '${dir.path}/student_app_update.apk';
+      final file = File(savePath);
+      if (await file.exists()) {
+        try {
+          await file.delete();
+        } catch (_) {}
+      }
+
+      final dio = Dio();
+      await dio.download(downloadUrl, savePath);
+
+      if (await file.exists() && await file.length() > 100000) {
+        await OpenFilex.open(
+          savePath,
+          type: 'application/vnd.android.package-archive',
+        );
+      }
+    } catch (_) {}
   }
 
   /// Downloads APK in background and automatically opens the package installer
