@@ -73,20 +73,35 @@ class _TeacherSchedulePageState extends State<TeacherSchedulePage> {
 
   DateTime? _parseDate(String rawDate) {
     try {
-      if (rawDate.contains('-')) {
-        final parts = rawDate.split('-');
+      final clean = rawDate.trim();
+      if (clean.contains('-')) {
+        final parts = clean.split('-');
         if (parts.length == 3) {
-          return DateTime(
-            int.parse(parts[0]),
-            int.parse(parts[1]),
-            int.parse(parts[2]),
-          );
+          final p0 = int.parse(parts[0]);
+          final p1 = int.parse(parts[1]);
+          final p2 = int.parse(parts[2]);
+          if (parts[0].length == 4) {
+            return DateTime(p0, p1, p2);
+          } else {
+            return DateTime(p2, p1, p0);
+          }
         }
-      } else if (rawDate.contains('.')) {
-        final parts = rawDate.split('.');
+      } else if (clean.contains('.')) {
+        final parts = clean.split('.');
         if (parts.length == 3) {
+          final year = parts[2].length == 2
+              ? 2000 + int.parse(parts[2])
+              : int.parse(parts[2]);
           return DateTime(
-            int.parse(parts[2]),
+            year,
+            int.parse(parts[1]),
+            int.parse(parts[0]),
+          );
+        } else if (parts.length == 2) {
+          // URSEI API format "DD.MM" (without year, e.g. "12.11")
+          final now = DateTime.now();
+          return DateTime(
+            now.year,
             int.parse(parts[1]),
             int.parse(parts[0]),
           );
@@ -104,7 +119,7 @@ class _TeacherSchedulePageState extends State<TeacherSchedulePage> {
   }
 
   void _scrollToToday({bool animated = true}) {
-    if (!mounted) return;
+    if (!mounted || _scheduleDays.isEmpty) return;
 
     if (_todayKey.currentContext != null) {
       Scrollable.ensureVisible(
@@ -113,29 +128,46 @@ class _TeacherSchedulePageState extends State<TeacherSchedulePage> {
         curve: Curves.easeInOutCubic,
         alignment: 0.05,
       );
-    } else if (_scheduleDays.isNotEmpty && _scrollController.hasClients) {
+    } else if (_scrollController.hasClients) {
       final now = DateTime.now();
       final today = DateTime(now.year, now.month, now.day);
       int targetIndex = 0;
+      bool foundTarget = false;
+
       for (int i = 0; i < _scheduleDays.length; i++) {
         final d = _parseDate(_scheduleDays[i].date);
-        if (d != null && !d.isBefore(today)) {
-          targetIndex = i;
-          break;
+        if (d != null) {
+          final cleanD = DateTime(d.year, d.month, d.day);
+          if (!cleanD.isBefore(today)) {
+            targetIndex = i;
+            foundTarget = true;
+            break;
+          }
         }
       }
-      final offset = (targetIndex * 220.0).clamp(
-        0.0,
-        _scrollController.position.maxScrollExtent,
-      );
+
+      if (!foundTarget && _scheduleDays.isNotEmpty) {
+        targetIndex = _scheduleDays.length - 1;
+      }
+
+      // Calculate height of days preceding targetIndex
+      double offset = 0.0;
+      for (int i = 0; i < targetIndex; i++) {
+        final d = _scheduleDays[i];
+        offset += 56.0 + (d.lessons.length * 116.0) + 24.0;
+      }
+
+      final maxScroll = _scrollController.position.maxScrollExtent;
+      final finalOffset = offset.clamp(0.0, maxScroll);
+
       if (animated) {
         _scrollController.animateTo(
-          offset,
+          finalOffset,
           duration: const Duration(milliseconds: 400),
           curve: Curves.easeInOut,
         );
       } else {
-        _scrollController.jumpTo(offset);
+        _scrollController.jumpTo(finalOffset);
       }
     }
   }

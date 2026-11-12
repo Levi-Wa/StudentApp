@@ -1,7 +1,6 @@
 import 'package:hive/hive.dart';
 import '../models/note.dart';
 import '../models/full_schedule.dart';
-import '../models/lesson.dart';
 
 class NotesRepository {
   static const String _notesBox = 'notes';
@@ -43,58 +42,64 @@ class NotesRepository {
     await box.delete(id);
   }
 
-  Future<void> extendToNextLesson(Note note, FullSchedule schedule) async {
+  Future<Map<String, dynamic>> extendToNextLesson(Note note, FullSchedule schedule) async {
     final nextLesson = _findNextLesson(note.disc, note.endDate, schedule);
     if (nextLesson != null) {
       note.endDate = nextLesson['date'] as DateTime;
       note.endLessonTime = nextLesson['time'] as String;
-      await saveNote(note);
+    } else {
+      // Fallback: precisely 1 week (+7 days) later at same lesson time
+      note.endDate = note.endDate.add(const Duration(days: 7));
     }
+    await saveNote(note);
+    return {
+      'date': note.endDate,
+      'time': note.endLessonTime,
+      'isScheduleMatch': nextLesson != null,
+    };
   }
 
   Map<String, dynamic>? _findNextLesson(
       String subject, DateTime currentDate, FullSchedule schedule) {
-    final currentDateStr =
-        '${currentDate.day.toString().padLeft(2, '0')}.${currentDate.month.toString().padLeft(2, '0')}.${currentDate.year}';
+    final cleanSubject = subject.trim().toLowerCase();
+    final cleanCurrentDate = DateTime(currentDate.year, currentDate.month, currentDate.day);
 
-    // Find current date index in schedule
-    int currentIndex = -1;
-    for (int i = 0; i < schedule.days.length; i++) {
-      if (schedule.days[i].date == currentDateStr) {
-        currentIndex = i;
-        break;
+    DateTime? earliestDate;
+    String? earliestTime;
+
+    for (final day in schedule.days) {
+      DateTime? dayDate;
+      try {
+        final parts = day.date.split('.');
+        if (parts.length == 3) {
+          dayDate = DateTime(int.parse(parts[2]), int.parse(parts[1]), int.parse(parts[0]));
+        } else if (parts.length == 2) {
+          dayDate = DateTime(currentDate.year, int.parse(parts[1]), int.parse(parts[0]));
+        }
+      } catch (_) {}
+
+      if (dayDate == null) continue;
+
+      // Must be chronologically after the current deadline date
+      if (!dayDate.isAfter(cleanCurrentDate)) continue;
+
+      // Find matching lesson in this day
+      for (final l in day.lessons) {
+        if (l.disc.trim().toLowerCase() == cleanSubject) {
+          if (earliestDate == null || dayDate.isBefore(earliestDate)) {
+            earliestDate = dayDate;
+            earliestTime = l.time.isNotEmpty ? l.time.split('-')[0].trim() : '09:00';
+          }
+          break;
+        }
       }
     }
 
-    // Look for next lesson with same subject starting from next day
-    for (int i = currentIndex + 1; i < schedule.days.length; i++) {
-      final daySchedule = schedule.days[i];
-
-      Lesson? lesson;
-      try {
-        lesson = daySchedule.lessons.firstWhere(
-          (l) => l.disc == subject,
-        );
-      } catch (_) {
-        lesson = null;
-      }
-
-      if (lesson != null) {
-        try {
-          final parts = daySchedule.date.split('.');
-          if (parts.length == 3) {
-            final day = int.parse(parts[0]);
-            final month = int.parse(parts[1]);
-            final year = int.parse(parts[2]);
-            final date = DateTime(year, month, day);
-
-            return {
-              'date': date,
-              'time': lesson.time.split('-')[0].trim(),
-            };
-          }
-        } catch (_) {}
-      }
+    if (earliestDate != null) {
+      return {
+        'date': earliestDate,
+        'time': earliestTime ?? '09:00',
+      };
     }
 
     return null;

@@ -4,8 +4,10 @@ import '../../../data/models/lesson.dart';
 import '../../../data/services/teacher_service.dart';
 import '../../../theme/app_theme.dart';
 import '../../../utils/responsive_text.dart';
+import '../../note_list/widgets/create_note_dialog.dart';
 import '../../teacher_schedule/teacher_schedule_page.dart';
 import '../../teacher_schedule/teacher_search_page.dart';
+import 'horizontal_week_calendar_dialog.dart';
 
 class LessonCard extends StatelessWidget {
   final Lesson lesson;
@@ -497,7 +499,38 @@ class LessonCard extends StatelessWidget {
                 const SizedBox(height: 10),
               ],
 
-              // Action buttons: "Добавить заметку"
+              // Calendar dates for this subject (Request 4)
+              OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppTheme.dockActiveAmber,
+                  side: const BorderSide(color: AppTheme.dockActiveAmber, width: 1.2),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  showDialog(
+                    context: context,
+                    builder: (context) => HorizontalWeekCalendarDialog(
+                      filterSubject: lesson.disc,
+                      filterTeacher: lesson.prepod,
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.calendar_month_rounded, size: 18),
+                label: Text(
+                  'Даты этой пары в календаре',
+                  style: GoogleFonts.inter(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13.5,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+
+              // Action buttons: "Добавить заметку" (Request 3 & 7)
               FilledButton.icon(
                 style: FilledButton.styleFrom(
                   backgroundColor: AppTheme.dockActiveAmber,
@@ -509,7 +542,14 @@ class LessonCard extends StatelessWidget {
                 ),
                 onPressed: () {
                   Navigator.pop(ctx);
-                  Navigator.pushNamed(context, '/notes');
+                  showDialog(
+                    context: context,
+                    builder: (context) => CreateNoteDialog(
+                      initialSubject: lesson.disc,
+                      initialTeacher: lesson.prepod,
+                      initialTime: startTime,
+                    ),
+                  );
                 },
                 icon: const Icon(Icons.edit_note_rounded, size: 20),
                 label: Text(

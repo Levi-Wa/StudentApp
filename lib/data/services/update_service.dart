@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../theme/app_theme.dart';
 
@@ -181,6 +182,20 @@ class UpdateService {
     return null;
   }
 
+  /// Checks and requests permission to install unknown packages on Android
+  static Future<bool> ensureInstallPermission() async {
+    if (Platform.isAndroid) {
+      try {
+        final status = await Permission.requestInstallPackages.status;
+        if (!status.isGranted) {
+          final result = await Permission.requestInstallPackages.request();
+          return result.isGranted;
+        }
+      } catch (_) {}
+    }
+    return true;
+  }
+
   /// Silently downloads APK in background for auto-update and triggers package installer
   static Future<void> performAutoUpdate(
       BuildContext context, String downloadUrl) async {
@@ -197,7 +212,8 @@ class UpdateService {
       final dio = Dio();
       await dio.download(downloadUrl, savePath);
 
-      if (await file.exists() && await file.length() > 100000) {
+      if (await file.exists() && await file.length() > 5000000) {
+        await ensureInstallPermission();
         await OpenFilex.open(
           savePath,
           type: 'application/vnd.android.package-archive',
@@ -243,20 +259,19 @@ class UpdateService {
       );
 
       // Verify file exists and has size
-      if (await file.exists() && await file.length() > 100000) {
+      if (await file.exists() && await file.length() > 5000000) {
         onProgress(1.0, 'Запуск установки...');
+        await ensureInstallPermission();
         final result = await OpenFilex.open(
           savePath,
           type: 'application/vnd.android.package-archive',
         );
 
         if (result.type != ResultType.done) {
-          // If OpenFile failed, fallback to external launcher
           await launchDownload(downloadUrl);
         }
         onComplete(null);
       } else {
-        // Fallback to browser
         await launchDownload(downloadUrl);
         onComplete(null);
       }
@@ -313,41 +328,168 @@ class _UpdateModalContent extends StatefulWidget {
 
 class _UpdateModalContentState extends State<_UpdateModalContent> {
   bool _isDownloading = false;
+  bool _isReadyToInstall = false;
+  String? _downloadedApkPath;
+  bool _needsPermission = false;
   double _progress = 0.0;
   String _progressText = '';
   String? _errorMessage;
 
-  void _startUpdate() {
+  @override
+  void initState() {
+    super.initState();
+    _checkExistingApk();
+  }
+
+  Future<void> _checkExistingApk() async {
+    try {
+      final dir = await getTemporaryDirectory();
+      final savePath = '${dir.path}/student_app_update.apk';
+      final file = File(savePath);
+      if (await file.exists() && await file.length() > 5000000) {
+        if (mounted) {
+          setState(() {
+            _downloadedApkPath = savePath;
+            _isReadyToInstall = true;
+            _progressText = 'APK уже загружен и готов к установке';
+          });
+        }
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _installApk() async {
+    if (_downloadedApkPath == null) return;
+
+    if (Platform.isAndroid) {
+      final status = await Permission.requestInstallPackages.status;
+      if (!status.isGranted) {
+        final res = await Permission.requestInstallPackages.request();
+        if (!res.isGranted) {
+          if (mounted) {
+            setState(() {
+              _needsPermission = true;
+              _errorMessage =
+                  'Для установки APK разрешите установку из неизвестных источников в настройках и затем нажмите «Установить».';
+            });
+          }
+          return;
+        }
+      }
+    }
+
+    if (mounted) {
+      setState(() {
+        _needsPermission = false;
+        _errorMessage = null;
+      });
+    }
+
+    final result = await OpenFilex.open(
+      _downloadedApkPath!,
+      type: 'application/vnd.android.package-archive',
+    );
+
+    if (result.type != ResultType.done && mounted) {
+      if (result.type == ResultType.permissionDenied) {
+        setState(() {
+          _needsPermission = true;
+          _errorMessage =
+              'Отказано в доступе. Пожалуйста, разрешите установку из этого источника в настройках.';
+        });
+      } else {
+        setState(() {
+          _errorMessage =
+              'Не удалось запустить установщик (${result.message}). Вы можете открыть файл через проводник или браузер.';
+        });
+      }
+    }
+  }
+
+  void _startUpdate({bool forceRedownload = false}) async {
+    if (!forceRedownload && _isReadyToInstall && _downloadedApkPath != null) {
+      _installApk();
+      return;
+    }
+
     setState(() {
       _isDownloading = true;
       _progress = 0.0;
       _progressText = 'Подготовка к загрузке...';
       _errorMessage = null;
+      _needsPermission = false;
     });
 
-    UpdateService.downloadAndInstallApk(
-      context,
-      widget.info.downloadUrl,
-      onProgress: (progress, status) {
-        if (mounted) {
-          setState(() {
-            _progress = progress;
-            _progressText = status;
-          });
-        }
-      },
-      onComplete: (error) {
+    try {
+      final dir = await getTemporaryDirectory();
+      final savePath = '${dir.path}/student_app_update.apk';
+      final file = File(savePath);
+      if (await file.exists()) {
+        try {
+          await file.delete();
+        } catch (_) {}
+      }
+
+      final dio = Dio();
+      await dio.download(
+        widget.info.downloadUrl,
+        savePath,
+        onReceiveProgress: (received, total) {
+          if (mounted) {
+            if (total > 0) {
+              final progress = received / total;
+              final receivedMb = (received / (1024 * 1024)).toStringAsFixed(1);
+              final totalMb = (total / (1024 * 1024)).toStringAsFixed(1);
+              setState(() {
+                _progress = progress;
+                _progressText = '$receivedMb МБ / $totalMb МБ';
+              });
+            } else {
+              final receivedMb = (received / (1024 * 1024)).toStringAsFixed(1);
+              setState(() {
+                _progress = 0.5;
+                _progressText = '$receivedMb МБ скачано';
+              });
+            }
+          }
+        },
+      );
+
+      if (await file.exists() && await file.length() > 5000000) {
         if (mounted) {
           setState(() {
             _isDownloading = false;
-            _errorMessage = error;
+            _isReadyToInstall = true;
+            _downloadedApkPath = savePath;
+            _progress = 1.0;
+            _progressText = 'Загрузка завершена. Запуск установщика...';
           });
-          if (error == null) {
-            Navigator.pop(context);
-          }
+          _installApk();
         }
-      },
-    );
+      } else {
+        throw Exception('Загруженный файл поврежден или слишком мал');
+      }
+    } catch (e) {
+      if (mounted) {
+        String msg = 'Не удалось загрузить обновление.';
+        if (e is DioException) {
+          if (e.response?.statusCode == 404) {
+            msg = 'Релиз с файлом APK ещё не опубликован в репозитории GitHub (ошибка 404). Создайте Release на GitHub и прикрепите файл app-release.apk.';
+          } else if (e.type == DioExceptionType.connectionTimeout ||
+              e.type == DioExceptionType.receiveTimeout) {
+            msg = 'Превышено время ожидания сервера. Проверьте интернет или отключите VPN.';
+          } else {
+            msg = 'Ошибка загрузки (${e.response?.statusCode ?? 'сеть'}). Проверьте подключение.';
+          }
+        } else {
+          msg = 'Ошибка при установке: $e';
+        }
+        setState(() {
+          _isDownloading = false;
+          _errorMessage = msg;
+        });
+      }
+    }
   }
 
   @override
@@ -626,7 +768,7 @@ class _UpdateModalContentState extends State<_UpdateModalContent> {
 
           const SizedBox(height: 24),
 
-          // Action buttons: "Обновить" instead of "Скачать"
+          // Action button
           FilledButton.icon(
             style: FilledButton.styleFrom(
               backgroundColor: AppTheme.dockActiveAmber,
@@ -637,7 +779,9 @@ class _UpdateModalContentState extends State<_UpdateModalContent> {
               ),
               elevation: 0,
             ),
-            onPressed: _isDownloading ? null : _startUpdate,
+            onPressed: _isDownloading
+                ? null
+                : (_isReadyToInstall ? _installApk : () => _startUpdate()),
             icon: _isDownloading
                 ? const SizedBox(
                     width: 20,
@@ -647,16 +791,44 @@ class _UpdateModalContentState extends State<_UpdateModalContent> {
                       color: Colors.black,
                     ),
                   )
-                : const Icon(Icons.system_update_rounded, size: 20),
+                : Icon(
+                    _needsPermission
+                        ? Icons.security_rounded
+                        : (_isReadyToInstall
+                            ? Icons.install_mobile_rounded
+                            : Icons.system_update_rounded),
+                    size: 20,
+                  ),
             label: Text(
-              _isDownloading ? 'Загрузка...' : 'Обновить',
+              _isDownloading
+                  ? 'Загрузка...'
+                  : (_needsPermission
+                      ? 'Разрешить и установить'
+                      : (_isReadyToInstall ? 'Установить APK' : 'Обновить')),
               style: GoogleFonts.inter(
                 fontWeight: FontWeight.w800,
                 fontSize: 16,
               ),
             ),
           ),
-          const SizedBox(height: 8),
+          if (_isReadyToInstall && !_isDownloading) ...[
+            const SizedBox(height: 6),
+            Center(
+              child: TextButton.icon(
+                style: TextButton.styleFrom(
+                  visualDensity: VisualDensity.compact,
+                  foregroundColor: subtextColor,
+                ),
+                onPressed: () => _startUpdate(forceRedownload: true),
+                icon: const Icon(Icons.refresh_rounded, size: 14),
+                label: const Text(
+                  'Скачать заново',
+                  style: TextStyle(fontSize: 12),
+                ),
+              ),
+            ),
+          ],
+          const SizedBox(height: 6),
           if (!_isDownloading)
             TextButton(
               style: TextButton.styleFrom(

@@ -23,6 +23,7 @@ class AppState extends ChangeNotifier {
   bool _initialized = false;
   bool _hideEmptyDays = true;
   bool _isDockVisible = true;
+  String _dockPosition = 'left'; // 'left' or 'right'
   bool _isOfflineMode = false;
   bool _hasNetworkConflict = false;
   String _offlineBehavior = 'ask'; // 'ask', 'always_offline', 'disabled'
@@ -49,6 +50,7 @@ class AppState extends ChangeNotifier {
   DateTime get selectedWeekStart => _selectedWeekStart;
   bool get hideEmptyDays => _hideEmptyDays;
   bool get isDockVisible => _isDockVisible;
+  String get dockPosition => _dockPosition;
   bool get isOfflineMode => _isOfflineMode;
   bool get hasNetworkConflict => _hasNetworkConflict;
   String get offlineBehavior => _offlineBehavior;
@@ -94,6 +96,13 @@ class AppState extends ChangeNotifier {
     notifyListeners();
     final box = await Hive.openBox('settings');
     await box.put('hide_empty_days', value);
+  }
+
+  Future<void> setDockPosition(String value) async {
+    _dockPosition = value;
+    notifyListeners();
+    final box = await Hive.openBox('settings');
+    await box.put('dock_position', value);
   }
 
   Future<void> toggleDockVisible() async {
@@ -362,6 +371,7 @@ class AppState extends ChangeNotifier {
       final settingsBox = await Hive.openBox('settings');
       _hideEmptyDays = settingsBox.get('hide_empty_days', defaultValue: true);
       _isDockVisible = settingsBox.get('dock_visible', defaultValue: true);
+      _dockPosition = settingsBox.get('dock_position', defaultValue: 'left');
       _offlineBehavior =
           settingsBox.get('offline_behavior', defaultValue: 'ask');
       _daily17CheckEnabled =

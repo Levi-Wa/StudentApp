@@ -227,6 +227,64 @@ class _SchedulePageState extends State<SchedulePage>
     }
 
     final isDockVisible = appState.isDockVisible;
+    final isDockOnRight = appState.dockPosition == 'right';
+
+    Widget dockWidget = AnimatedContainer(
+      duration: const Duration(milliseconds: 250),
+      curve: Curves.easeInOut,
+      width: isDockVisible ? 62 : 0,
+      child: ClipRect(
+        child: OverflowBox(
+          minWidth: 62,
+          maxWidth: 62,
+          alignment: isDockOnRight ? Alignment.centerRight : Alignment.centerLeft,
+          child: _buildDock(
+            context,
+            appState,
+            visibleDockDates,
+            weekDays,
+            now,
+            notesProvider.notes.length,
+            isRight: isDockOnRight,
+          ),
+        ),
+      ),
+    );
+
+    Widget expandTabWidget = GestureDetector(
+      onTap: () => appState.toggleDockVisible(),
+      onHorizontalDragEnd: (details) {
+        final vx = details.primaryVelocity ?? 0;
+        if (isDockOnRight ? vx < -100 : vx > 100) {
+          appState.setDockVisible(true);
+        }
+      },
+      child: Container(
+        width: 14,
+        height: 64,
+        margin: const EdgeInsets.symmetric(vertical: 8),
+        decoration: BoxDecoration(
+          color: AppTheme.dockBg,
+          borderRadius: BorderRadius.horizontal(
+            left: isDockOnRight ? const Radius.circular(10) : Radius.zero,
+            right: !isDockOnRight ? const Radius.circular(10) : Radius.zero,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.15),
+              blurRadius: 4,
+            ),
+          ],
+        ),
+        child: Center(
+          child: Icon(
+            isDockOnRight ? Icons.chevron_left_rounded : Icons.chevron_right_rounded,
+            color: AppTheme.dockActiveAmber,
+            size: 14,
+          ),
+        ),
+      ),
+    );
 
     return Scaffold(
       backgroundColor: bg,
@@ -235,79 +293,33 @@ class _SchedulePageState extends State<SchedulePage>
           behavior: HitTestBehavior.translucent,
           onHorizontalDragEnd: (details) {
             final vx = details.primaryVelocity ?? 0;
-            // Swipe left anywhere closes dock (Request 6)
-            if (vx < -220 && isDockVisible) {
-              appState.setDockVisible(false);
-            }
-            // Swipe right when dock is closed opens dock (Request 6)
-            else if (vx > 220 && !isDockVisible) {
-              appState.setDockVisible(true);
+            if (!isDockOnRight) {
+              if (vx < -220 && isDockVisible) {
+                appState.setDockVisible(false);
+              } else if (vx > 220 && !isDockVisible) {
+                appState.setDockVisible(true);
+              }
+            } else {
+              if (vx > 220 && isDockVisible) {
+                appState.setDockVisible(false);
+              } else if (vx < -220 && !isDockVisible) {
+                appState.setDockVisible(true);
+              }
             }
           },
           child: Row(
             children: [
-              // ==================== COLLAPSIBLE LEFT DOCK (Request 1 & 6) ====================
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 250),
-                curve: Curves.easeInOut,
-                width: isDockVisible ? 62 : 0,
-                child: ClipRect(
-                  child: OverflowBox(
-                    minWidth: 62,
-                    maxWidth: 62,
-                    alignment: Alignment.centerLeft,
-                    child: _buildLeftDock(
-                      context,
-                      appState,
-                      visibleDockDates,
-                      weekDays,
-                      now,
-                      notesProvider.notes.length,
-                    ),
-                  ),
-                ),
-              ),
+              // Left Dock (if positioned left)
+              if (!isDockOnRight) ...[
+                dockWidget,
+                if (!isDockVisible) expandTabWidget,
+              ],
 
-              // If dock is hidden, show a subtle floating expand tab on left edge
-              if (!isDockVisible)
-                GestureDetector(
-                  onTap: () => appState.toggleDockVisible(),
-                  onHorizontalDragEnd: (details) {
-                    if ((details.primaryVelocity ?? 0) > 100) {
-                      appState.setDockVisible(true);
-                    }
-                  },
-                  child: Container(
-                    width: 14,
-                    height: 64,
-                    margin: const EdgeInsets.symmetric(vertical: 8),
-                    decoration: BoxDecoration(
-                      color: AppTheme.dockBg,
-                      borderRadius: const BorderRadius.horizontal(
-                        right: Radius.circular(10),
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.15),
-                          blurRadius: 4,
-                        ),
-                      ],
-                    ),
-                    child: const Center(
-                      child: Icon(
-                        Icons.chevron_right_rounded,
-                        color: AppTheme.dockActiveAmber,
-                        size: 14,
-                      ),
-                    ),
-                  ),
-                ),
-
-            // ==================== MAIN CONTENT AREA ====================
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
+              // ==================== MAIN CONTENT AREA ====================
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
                   // Header with Date Badge, Title, and Date Selection UNDER "Расписание" (Request 2)
                   _buildHeader(
                     context,
@@ -443,6 +455,12 @@ class _SchedulePageState extends State<SchedulePage>
                 ],
               ),
             ),
+
+            // Right Dock (if positioned right)
+            if (isDockOnRight) ...[
+              if (!isDockVisible) expandTabWidget,
+              dockWidget,
+            ],
           ],
         ),
       ),
@@ -450,25 +468,31 @@ class _SchedulePageState extends State<SchedulePage>
   );
 }
 
-  /// Left vertical dock matching the design in Image 1
-  Widget _buildLeftDock(
+  /// Vertical dock matching the design in Image 1 (supports left or right edge)
+  Widget _buildDock(
     BuildContext context,
     AppState appState,
     List<DateTime> visibleDockDates,
     List<DaySchedule> weekDays,
     DateTime now,
-    int notesCount,
-  ) {
+    int notesCount, {
+    bool isRight = false,
+  }) {
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onHorizontalDragEnd: (details) {
-        if ((details.primaryVelocity ?? 0) < -120) {
+        final vx = details.primaryVelocity ?? 0;
+        if (!isRight && vx < -120) {
+          appState.setDockVisible(false);
+        } else if (isRight && vx > 120) {
           appState.setDockVisible(false);
         }
       },
       child: Container(
         width: 62,
-        margin: const EdgeInsets.fromLTRB(8, 8, 0, 8),
+        margin: isRight
+            ? const EdgeInsets.fromLTRB(0, 8, 8, 8)
+            : const EdgeInsets.fromLTRB(8, 8, 0, 8),
         decoration: BoxDecoration(
         color: AppTheme.dockBg,
         borderRadius: BorderRadius.circular(26),
@@ -476,7 +500,7 @@ class _SchedulePageState extends State<SchedulePage>
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.18),
             blurRadius: 10,
-            offset: const Offset(2, 4),
+            offset: Offset(isRight ? -2 : 2, 4),
           ),
         ],
       ),
@@ -583,14 +607,16 @@ class _SchedulePageState extends State<SchedulePage>
                     // Active pointer / tab notch pointing to schedule (Image 1)
                     if (isSelected)
                       Positioned(
-                        right: -8,
+                        right: isRight ? null : -8,
+                        left: isRight ? -8 : null,
                         child: Container(
                           width: 4,
                           height: 12,
-                          decoration: const BoxDecoration(
+                          decoration: BoxDecoration(
                             color: AppTheme.dockActiveAmber,
                             borderRadius: BorderRadius.horizontal(
-                              right: Radius.circular(3),
+                              left: isRight ? const Radius.circular(3) : Radius.zero,
+                              right: !isRight ? const Radius.circular(3) : Radius.zero,
                             ),
                           ),
                         ),

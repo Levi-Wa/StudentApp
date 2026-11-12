@@ -852,6 +852,55 @@ class _SettingsPageState extends State<SettingsPage> {
             activeThumbColor: AppTheme.dockActiveAmber,
             onChanged: (v) => appState.setHideEmptyDays(v),
           ),
+          const SizedBox(height: 6),
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 6),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Расположение боковой панели',
+                        style: GoogleFonts.inter(
+                          fontSize: ResponsiveText.body(context),
+                          fontWeight: FontWeight.w500,
+                          color: text,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Слева или справа экрана',
+                        style: GoogleFonts.inter(fontSize: 12, color: subtext),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                SegmentedButton<String>(
+                  segments: const [
+                    ButtonSegment(
+                      value: 'left',
+                      label: Text('Слева', style: TextStyle(fontSize: 12.5)),
+                    ),
+                    ButtonSegment(
+                      value: 'right',
+                      label: Text('Справа', style: TextStyle(fontSize: 12.5)),
+                    ),
+                  ],
+                  selected: {appState.dockPosition},
+                  onSelectionChanged: (val) {
+                    if (val.isNotEmpty) {
+                      appState.setDockPosition(val.first);
+                    }
+                  },
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 6),
           _buildTextSizeSelector(textSizeProvider, surface, text, divider),
           Divider(color: divider),
           SwitchListTile(

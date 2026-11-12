@@ -261,18 +261,28 @@ class NoteCard extends StatelessWidget {
     );
   }
 
-  void _extendNote(BuildContext context) {
+  void _extendNote(BuildContext context) async {
     final appState = Provider.of<AppState>(context, listen: false);
     final notesProvider = Provider.of<NotesProvider>(context, listen: false);
 
     if (appState.schedule != null) {
-      notesProvider.extendToNextLesson(note, appState.schedule!);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Заметка перенесена на следующее занятие'),
-          duration: Duration(seconds: 1),
-        ),
-      );
+      final res =
+          await notesProvider.extendToNextLesson(note, appState.schedule!);
+      final dt = res['date'] as DateTime;
+      final time = res['time'] as String;
+      final dateFormatted =
+          '${dt.day.toString().padLeft(2, '0')}.${dt.month.toString().padLeft(2, '0')}.${dt.year}';
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Срок перенесён на $dateFormatted в $time'),
+            backgroundColor: AppTheme.dockActiveAmber,
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
     }
   }
 

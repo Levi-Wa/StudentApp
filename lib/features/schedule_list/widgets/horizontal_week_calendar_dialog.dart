@@ -9,11 +9,15 @@ enum CalendarMode { week, month }
 class HorizontalWeekCalendarDialog extends StatefulWidget {
   final CalendarMode initialMode;
   final Function(DateTime)? onDatePicked;
+  final String? filterSubject;
+  final String? filterTeacher;
 
   const HorizontalWeekCalendarDialog({
     super.key,
     this.initialMode = CalendarMode.week,
     this.onDatePicked,
+    this.filterSubject,
+    this.filterTeacher,
   });
 
   @override
@@ -27,11 +31,15 @@ class _HorizontalWeekCalendarDialogState
   late DateTime _weekStart;
   late DateTime _selectedDate;
   late DateTime _displayMonth;
+  String? _currentFilterSubject;
+  String? _currentFilterTeacher;
 
   @override
   void initState() {
     super.initState();
     _mode = widget.initialMode;
+    _currentFilterSubject = widget.filterSubject;
+    _currentFilterTeacher = widget.filterTeacher;
     final appState = Provider.of<AppState>(context, listen: false);
     DateTime initDate = DateTime.now();
     if (appState.selectedDateStr != null) {
@@ -162,7 +170,21 @@ class _HorizontalWeekCalendarDialogState
         '${date.day.toString().padLeft(2, '0')}.${date.month.toString().padLeft(2, '0')}.${date.year}';
     final day =
         appState.schedule?.days.where((d) => d.date == dateStr).firstOrNull;
-    return day != null && day.lessons.isNotEmpty;
+    if (day == null || day.lessons.isEmpty) return false;
+
+    if (_currentFilterSubject != null && _currentFilterSubject!.trim().isNotEmpty) {
+      final qSub = _currentFilterSubject!.trim().toLowerCase();
+      final hasSub = day.lessons.any((l) => l.disc.toLowerCase().contains(qSub));
+      if (!hasSub) return false;
+    }
+
+    if (_currentFilterTeacher != null && _currentFilterTeacher!.trim().isNotEmpty) {
+      final qTeach = _currentFilterTeacher!.trim().toLowerCase();
+      final hasTeach = day.lessons.any((l) => l.prepod.toLowerCase().contains(qTeach));
+      if (!hasTeach) return false;
+    }
+
+    return true;
   }
 
   @override
@@ -182,6 +204,57 @@ class _HorizontalWeekCalendarDialogState
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            // Filter banner if active (Request 4)
+            if (_currentFilterSubject != null && _currentFilterSubject!.isNotEmpty) ...[
+              Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: AppTheme.dockActiveAmber.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: AppTheme.dockActiveAmber.withValues(alpha: 0.4),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.filter_alt_rounded,
+                      size: 16,
+                      color: AppTheme.dockActiveAmber,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Только: $_currentFilterSubject',
+                        style: GoogleFonts.inter(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: text,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    InkWell(
+                      onTap: () => setState(() {
+                        _currentFilterSubject = null;
+                        _currentFilterTeacher = null;
+                      }),
+                      child: const Padding(
+                        padding: EdgeInsets.all(2),
+                        child: Icon(
+                          Icons.close_rounded,
+                          size: 16,
+                          color: AppTheme.dockActiveAmber,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+
             // Segmented mode switcher: [ Неделя | Месяц ]
             Container(
               height: 44,

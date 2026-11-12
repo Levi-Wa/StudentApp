@@ -8,7 +8,18 @@ import '../../../theme/app_theme.dart';
 import '../../../utils/responsive_text.dart';
 
 class CreateNoteDialog extends StatefulWidget {
-  const CreateNoteDialog({super.key});
+  final String? initialSubject;
+  final String? initialTeacher;
+  final String? initialTime;
+  final DateTime? initialDate;
+
+  const CreateNoteDialog({
+    super.key,
+    this.initialSubject,
+    this.initialTeacher,
+    this.initialTime,
+    this.initialDate,
+  });
 
   @override
   State<CreateNoteDialog> createState() => _CreateNoteDialogState();
@@ -18,16 +29,44 @@ class _CreateNoteDialogState extends State<CreateNoteDialog> {
   final _textController = TextEditingController();
   final _customSubjectController = TextEditingController();
   final _dateController = TextEditingController();
+  final _timeController = TextEditingController();
 
   String? selectedSubject;
   DateTime? selectedDate;
+  TimeOfDay? selectedTime;
   bool _isCustomSubject = false;
+
+  @override
+  void initState() {
+    super.initState();
+    selectedSubject = widget.initialSubject;
+    selectedDate = widget.initialDate ?? DateTime.now();
+    _dateController.text =
+        '${selectedDate!.day.toString().padLeft(2, '0')}.${selectedDate!.month.toString().padLeft(2, '0')}.${selectedDate!.year}';
+
+    if (widget.initialTime != null && widget.initialTime!.isNotEmpty) {
+      _timeController.text = widget.initialTime!;
+      try {
+        final parts = widget.initialTime!.split(':');
+        selectedTime = TimeOfDay(
+          hour: int.parse(parts[0]),
+          minute: int.parse(parts[1]),
+        );
+      } catch (_) {
+        selectedTime = const TimeOfDay(hour: 9, minute: 0);
+      }
+    } else {
+      selectedTime = const TimeOfDay(hour: 9, minute: 0);
+      _timeController.text = '09:00';
+    }
+  }
 
   @override
   void dispose() {
     _textController.dispose();
     _customSubjectController.dispose();
     _dateController.dispose();
+    _timeController.dispose();
     super.dispose();
   }
 
@@ -56,7 +95,29 @@ class _CreateNoteDialogState extends State<CreateNoteDialog> {
               ),
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 20),
+            if (widget.initialTeacher != null && widget.initialTeacher!.isNotEmpty) ...[
+              const SizedBox(height: 6),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.person_outline_rounded,
+                      size: 14, color: AppTheme.dockActiveAmber),
+                  const SizedBox(width: 4),
+                  Flexible(
+                    child: Text(
+                      widget.initialTeacher!,
+                      style: GoogleFonts.inter(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.dockActiveAmber,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+            const SizedBox(height: 18),
 
             // Subject selector or custom input
             Consumer<AppState>(
@@ -68,6 +129,12 @@ class _CreateNoteDialogState extends State<CreateNoteDialog> {
                         .toSet()
                         .toList() ??
                     [];
+
+                if (widget.initialSubject != null &&
+                    widget.initialSubject!.isNotEmpty &&
+                    !subjects.contains(widget.initialSubject)) {
+                  subjects.insert(0, widget.initialSubject!);
+                }
 
                 if (_isCustomSubject || subjects.isEmpty) {
                   return Column(
@@ -157,26 +224,59 @@ class _CreateNoteDialogState extends State<CreateNoteDialog> {
             ),
             const SizedBox(height: 12),
 
-            // Date picker
-            TextField(
-              controller: _dateController,
-              decoration: InputDecoration(
-                labelText: 'Срок выполнения (дата)',
-                hintText: 'Выберите дату',
-                suffixIcon: const Icon(Icons.calendar_today_rounded, size: 18),
-                filled: true,
-                fillColor: surface,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: divider),
+            // Date & Time pickers
+            Row(
+              children: [
+                Expanded(
+                  flex: 3,
+                  child: TextField(
+                    controller: _dateController,
+                    decoration: InputDecoration(
+                      labelText: 'Дата сдачи',
+                      hintText: 'Выберите дату',
+                      suffixIcon:
+                          const Icon(Icons.calendar_today_rounded, size: 18),
+                      filled: true,
+                      fillColor: surface,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: divider),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: divider),
+                      ),
+                    ),
+                    readOnly: true,
+                    onTap: _selectDate,
+                  ),
                 ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: divider),
+                const SizedBox(width: 10),
+                Expanded(
+                  flex: 2,
+                  child: TextField(
+                    controller: _timeController,
+                    decoration: InputDecoration(
+                      labelText: 'Время',
+                      hintText: '09:00',
+                      suffixIcon:
+                          const Icon(Icons.access_time_rounded, size: 18),
+                      filled: true,
+                      fillColor: surface,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: divider),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: divider),
+                      ),
+                    ),
+                    readOnly: true,
+                    onTap: _selectTime,
+                  ),
                 ),
-              ),
-              readOnly: true,
-              onTap: _selectDate,
+              ],
             ),
             const SizedBox(height: 16),
 
@@ -274,30 +374,31 @@ class _CreateNoteDialogState extends State<CreateNoteDialog> {
     }
   }
 
+  void _selectTime() async {
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: selectedTime ?? const TimeOfDay(hour: 9, minute: 0),
+    );
+
+    if (picked != null) {
+      setState(() {
+        selectedTime = picked;
+        final hour = picked.hour.toString().padLeft(2, '0');
+        final min = picked.minute.toString().padLeft(2, '0');
+        _timeController.text = '$hour:$min';
+      });
+    }
+  }
+
   void _saveNote() {
     if (!_canSave()) return;
 
     final effectiveSubject =
         _isCustomSubject ? _customSubjectController.text.trim() : selectedSubject!;
 
-    final appState = Provider.of<AppState>(context, listen: false);
-    final dateStr =
-        '${selectedDate!.day.toString().padLeft(2, '0')}.${selectedDate!.month.toString().padLeft(2, '0')}.${selectedDate!.year}';
-
-    String endLessonTime = '09:00';
-    try {
-      final daySchedule = appState.schedule?.days
-          .where((day) => day.date == dateStr)
-          .firstOrNull;
-
-      final lesson = daySchedule?.lessons
-          .where((l) => l.disc == effectiveSubject)
-          .firstOrNull;
-
-      if (lesson != null && lesson.time.isNotEmpty) {
-        endLessonTime = lesson.time.split('-')[0].trim();
-      }
-    } catch (_) {}
+    final timeStr = _timeController.text.trim().isNotEmpty
+        ? _timeController.text.trim()
+        : '09:00';
 
     final note = Note(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
@@ -306,7 +407,7 @@ class _CreateNoteDialogState extends State<CreateNoteDialog> {
           ? 'Заметка без текста'
           : _textController.text.trim(),
       endDate: selectedDate!,
-      endLessonTime: endLessonTime,
+      endLessonTime: timeStr,
       createdAt: DateTime.now(),
     );
 
