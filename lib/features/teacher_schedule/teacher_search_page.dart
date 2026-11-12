@@ -84,6 +84,129 @@ class _TeacherSearchPageState extends State<TeacherSearchPage> {
     );
   }
 
+  void _showDepartmentBottomSheet(
+    BuildContext context,
+    Color cardBg,
+    Color surface,
+    Color text,
+    Color subtext,
+    Color divider,
+  ) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: cardBg,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 36,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: subtext.withValues(alpha: 0.3),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    const Icon(Icons.apartment_rounded,
+                        color: AppTheme.dockActiveAmber, size: 22),
+                    const SizedBox(width: 10),
+                    Text(
+                      'Выберите кафедру',
+                      style: GoogleFonts.inter(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                        color: text,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                Flexible(
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    itemCount: _teacherService.departments.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 8),
+                    itemBuilder: (context, index) {
+                      final dept = _teacherService.departments[index];
+                      final isSelected = _selectedDepartment?.id == dept.id;
+
+                      return InkWell(
+                        borderRadius: BorderRadius.circular(14),
+                        onTap: () {
+                          setState(() {
+                            _selectedDepartment = dept;
+                            _selectedTeacher = null;
+                          });
+                          Navigator.pop(ctx);
+                        },
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 150),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 14, vertical: 13),
+                          decoration: BoxDecoration(
+                            color: isSelected
+                                ? AppTheme.dockActiveAmber
+                                    .withValues(alpha: 0.12)
+                                : surface,
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(
+                              color: isSelected
+                                  ? AppTheme.dockActiveAmber
+                                  : divider,
+                              width: isSelected ? 1.5 : 1.0,
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  dept.name,
+                                  style: GoogleFonts.inter(
+                                    fontSize: 14,
+                                    fontWeight: isSelected
+                                        ? FontWeight.w700
+                                        : FontWeight.w500,
+                                    color: isSelected
+                                        ? AppTheme.dockActiveAmber
+                                        : text,
+                                  ),
+                                ),
+                              ),
+                              if (isSelected) ...[
+                                const SizedBox(width: 8),
+                                const Icon(
+                                  Icons.check_circle_rounded,
+                                  color: AppTheme.dockActiveAmber,
+                                  size: 20,
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final bg = AppTheme.bg(context);
@@ -177,41 +300,50 @@ class _TeacherSearchPageState extends State<TeacherSearchPage> {
                               ],
                             ),
                             const SizedBox(height: 10),
-                            DropdownButtonFormField<Department>(
-                              initialValue: _selectedDepartment,
-                              isExpanded: true,
-                              decoration: InputDecoration(
-                                filled: true,
-                                fillColor: surface,
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                  borderSide: BorderSide(color: divider),
+                            InkWell(
+                              borderRadius: BorderRadius.circular(14),
+                              onTap: () => _showDepartmentBottomSheet(
+                                context,
+                                cardBg,
+                                surface,
+                                text,
+                                subtext,
+                                divider,
+                              ),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 14, vertical: 14),
+                                decoration: BoxDecoration(
+                                  color: surface,
+                                  borderRadius: BorderRadius.circular(14),
+                                  border: Border.all(color: divider),
                                 ),
-                                enabledBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                  borderSide: BorderSide(color: divider),
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        _selectedDepartment?.name ??
+                                            'Выберите кафедру',
+                                        style: GoogleFonts.inter(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w600,
+                                          color: _selectedDepartment != null
+                                              ? text
+                                              : subtext,
+                                        ),
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Icon(
+                                      Icons.keyboard_arrow_down_rounded,
+                                      size: 20,
+                                      color: subtext,
+                                    ),
+                                  ],
                                 ),
                               ),
-                              items: _teacherService.departments.map((dept) {
-                                return DropdownMenuItem<Department>(
-                                  value: dept,
-                                  child: Text(
-                                    dept.name,
-                                    style: GoogleFonts.inter(
-                                      fontSize: 13.5,
-                                      color: text,
-                                    ),
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                );
-                              }).toList(),
-                              onChanged: (dept) {
-                                setState(() {
-                                  _selectedDepartment = dept;
-                                  _selectedTeacher = null;
-                                });
-                              },
                             ),
                           ],
                         ),
