@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:student_app/data/models/classroom_occupancy.dart';
 import 'package:student_app/data/models/day_schedule.dart';
 import 'package:student_app/data/models/full_schedule.dart';
+import 'package:student_app/data/models/lesson.dart';
 import 'package:student_app/data/providers/app_state.dart';
+import 'package:student_app/data/services/classroom_service.dart';
 import 'package:student_app/data/services/update_service.dart';
 import 'package:student_app/theme/app_theme.dart';
 
@@ -144,6 +147,100 @@ void main() {
 
       final (labBg, _, _, _) = AppTheme.getLessonStyle('Лабораторная', 2);
       expect(labBg, const Color(0xFF7E22CE)); // Purple
+    });
+  });
+
+  group('ClassroomOccupancy & Service tests', () {
+    test('ClassroomOccupancyData parses JSON correctly', () {
+      final json = {
+        'Pairs': [
+          {'Pair_ID': 17, 'PairNumb': 1, 'TimeStart': '08:30', 'TimeEnd': '10:05'},
+          {'Pair_ID': 18, 'PairNumb': 2, 'TimeStart': '10:15', 'TimeEnd': '11:50'},
+        ],
+        'Buildings': [
+          {
+            'Building_ID': 1,
+            'BuildingName': 'Главный корпус',
+            'Auds': [
+              {'Aud_ID': 3, 'AudName': '606', 'AudTypeName': 'Компьютерный класс', 'Volume': 20},
+              {'Aud_ID': 96, 'AudName': '116', 'AudTypeName': 'Лекционная', 'Volume': 32},
+            ],
+          },
+        ],
+      };
+
+      final data = ClassroomOccupancyData.fromJson(json);
+      expect(data.pairs.length, 2);
+      expect(data.pairs[0].pairNumb, 1);
+      expect(data.pairs[0].timeStart, '08:30');
+      expect(data.buildings.length, 1);
+      expect(data.buildings[0].buildingName, 'Главный корпус');
+      expect(data.buildings[0].auds.length, 2);
+      expect(data.buildings[0].auds[0].audName, '606');
+    });
+
+    test('ClassroomService correctly marks occupied and free rooms', () {
+      final service = ClassroomService();
+      final building = ClassroomBuilding(
+        buildingId: 1,
+        buildingName: 'Главный корпус',
+        auds: [
+          Classroom(audId: 1, audName: '606', audTypeName: 'Компьютерный класс', volume: 20),
+          Classroom(audId: 2, audName: '116', audTypeName: 'Лекционная', volume: 32),
+        ],
+      );
+
+      final pair1 = ClassroomPair(pairId: 17, pairNumb: 1, timeStart: '08:30', timeEnd: '10:05');
+      final pair2 = ClassroomPair(pairId: 18, pairNumb: 2, timeStart: '10:15', timeEnd: '11:50');
+
+      // Schedule has 606 booked on 11.11.2026 during pair 1
+      final schedule = FullSchedule(
+        group: 'ИД-301кис',
+        lastUpdated: DateTime.now(),
+        days: [
+          DaySchedule(
+            date: '11.11.2026',
+            dayOfWeek: 'Среда',
+            lessons: [
+              Lesson(
+                time: '08:30 - 10:00',
+                disc: 'Интернет-технологии',
+                prepod: 'Корогод Н.А.',
+                aud: '606/ГК',
+                vidZan: 'Лабор',
+                dayOfWeek: 'Среда',
+              ),
+            ],
+          ),
+        ],
+      );
+
+      final testDate = DateTime(2026, 11, 11);
+
+      // On Pair 1: room 606 must be busy, room 116 must be free
+      final statusesPair1 = service.getOccupancyForBuilding(
+        building: building,
+        date: testDate,
+        pair: pair1,
+        schedule: schedule,
+      );
+
+      expect(statusesPair1[0].classroom.audName, '606');
+      expect(statusesPair1[0].isBusy, isTrue);
+      expect(statusesPair1[0].lesson?.disc, 'Интернет-технологии');
+      expect(statusesPair1[1].classroom.audName, '116');
+      expect(statusesPair1[1].isBusy, isFalse);
+
+      // On Pair 2: both rooms are free
+      final statusesPair2 = service.getOccupancyForBuilding(
+        building: building,
+        date: testDate,
+        pair: pair2,
+        schedule: schedule,
+      );
+
+      expect(statusesPair2[0].isBusy, isFalse);
+      expect(statusesPair2[1].isBusy, isFalse);
     });
   });
 }

@@ -265,24 +265,26 @@ class NoteCard extends StatelessWidget {
     final appState = Provider.of<AppState>(context, listen: false);
     final notesProvider = Provider.of<NotesProvider>(context, listen: false);
 
-    if (appState.schedule != null) {
-      final res =
-          await notesProvider.extendToNextLesson(note, appState.schedule!);
-      final dt = res['date'] as DateTime;
-      final time = res['time'] as String;
-      final dateFormatted =
-          '${dt.day.toString().padLeft(2, '0')}.${dt.month.toString().padLeft(2, '0')}.${dt.year}';
+    final res = await notesProvider.extendToNextLesson(note, appState.schedule);
+    final dt = res['date'] as DateTime;
+    final time = res['time'] as String;
+    final dateFormatted =
+        '${dt.day.toString().padLeft(2, '0')}.${dt.month.toString().padLeft(2, '0')}.${dt.year}';
+    final isMatch = res['isScheduleMatch'] == true;
 
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Срок перенесён на $dateFormatted в $time'),
-            backgroundColor: AppTheme.dockActiveAmber,
-            behavior: SnackBarBehavior.floating,
-            duration: const Duration(seconds: 2),
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            isMatch
+                ? 'Срок перенесён на след. пару: $dateFormatted в $time'
+                : 'Срок перенесён на неделю: $dateFormatted в $time',
           ),
-        );
-      }
+          backgroundColor: AppTheme.dockActiveAmber,
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 3),
+        ),
+      );
     }
   }
 

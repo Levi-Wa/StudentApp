@@ -152,6 +152,7 @@ class _NotePageState extends State<NotePage> {
       appBar: AppBar(
         backgroundColor: cardBg,
         elevation: 0,
+        titleSpacing: 0,
         title: _isSelectionMode
             ? Text(
                 'Выбрано: ${_selectedNoteIds.length}',
@@ -163,7 +164,7 @@ class _NotePageState extends State<NotePage> {
             : Text(
                 'Заметки',
                 style: GoogleFonts.inter(
-                  fontSize: 22,
+                  fontSize: 20,
                   fontWeight: FontWeight.w800,
                   color: text,
                 ),

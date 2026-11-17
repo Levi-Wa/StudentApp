@@ -12,6 +12,7 @@ import '../../data/services/notification_service.dart';
 import '../../data/services/schedule_comparison_service.dart';
 import '../../data/services/update_service.dart';
 import '../../utils/responsive_text.dart';
+import '../classrooms/classroom_occupancy_page.dart';
 import '../teacher_schedule/teacher_search_page.dart';
 import 'widgets/share_app_modal.dart';
 
@@ -184,6 +185,14 @@ class _SettingsPageState extends State<SettingsPage> {
       body: ListView(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         children: [
+          // Active Profile & Role Section
+          _buildProfileSection(appState, cardBg, surface, text, subtext, divider),
+          const SizedBox(height: 16),
+
+          // Classroom Occupancy Section (Request 3)
+          _buildClassroomsSection(cardBg, surface, text, subtext, divider),
+          const SizedBox(height: 16),
+
           // Share App Section (QR Code & Direct Download)
           _buildShareAppSection(cardBg, surface, text, subtext, divider),
           const SizedBox(height: 16),
@@ -192,7 +201,7 @@ class _SettingsPageState extends State<SettingsPage> {
           _buildUpdateSection(appState, cardBg, surface, text, subtext, divider),
           const SizedBox(height: 16),
 
-          // Current Group info & changer
+          // Current Group info & changer (Students / Teacher student lookup)
           _buildGroupSection(appState, cardBg, surface, text, subtext, divider),
           const SizedBox(height: 16),
 
@@ -219,6 +228,246 @@ class _SettingsPageState extends State<SettingsPage> {
           // Reset data
           _buildResetSection(appState, cardBg, text, subtext, divider),
           const SizedBox(height: 24),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildProfileSection(
+    AppState appState,
+    Color cardBg,
+    Color surface,
+    Color text,
+    Color subtext,
+    Color divider,
+  ) {
+    final isTeacher = appState.isTeacherMode;
+
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: cardBg,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: divider),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: AppTheme.dockActiveAmber.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(
+                  isTeacher ? Icons.person_rounded : Icons.school_rounded,
+                  color: AppTheme.dockActiveAmber,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Активный профиль',
+                  style: GoogleFonts.inter(
+                    fontSize: ResponsiveText.title(context),
+                    fontWeight: FontWeight.w700,
+                    color: text,
+                  ),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: AppTheme.dockActiveAmber.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  isTeacher ? 'Преподаватель' : 'Студент',
+                  style: GoogleFonts.inter(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w700,
+                    color: AppTheme.dockActiveAmber,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: surface,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: divider),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        isTeacher
+                            ? (appState.teacherFio ?? 'Преподаватель')
+                            : (appState.currentGroupName ?? 'Группа не выбрана'),
+                        style: GoogleFonts.inter(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          color: text,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        isTeacher
+                            ? (appState.teacherDepartName ?? 'Кафедра')
+                            : 'Учебная группа',
+                        style: GoogleFonts.inter(
+                          fontSize: 12,
+                          color: subtext,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppTheme.dockActiveAmber,
+                side: const BorderSide(color: AppTheme.dockActiveAmber, width: 1.2),
+                padding: const EdgeInsets.symmetric(vertical: 11),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              onPressed: () => _confirmSwitchProfile(appState),
+              icon: const Icon(Icons.swap_horiz_rounded, size: 18),
+              label: Text(
+                'Сменить профиль или роль',
+                style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 13),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _confirmSwitchProfile(AppState appState) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Сменить профиль?'),
+        content: const Text(
+          'Вы перейдёте на начальный экран, где сможете заново выбрать режим студента или преподавателя.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Отмена'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: AppTheme.dockActiveAmber,
+              foregroundColor: Colors.black,
+            ),
+            onPressed: () async {
+              Navigator.pop(ctx);
+              await appState.resetApp();
+              if (mounted) {
+                Navigator.pushNamedAndRemoveUntil(context, '/', (_) => false);
+              }
+            },
+            child: const Text('Сменить'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildClassroomsSection(
+    Color cardBg,
+    Color surface,
+    Color text,
+    Color subtext,
+    Color divider,
+  ) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: cardBg,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: divider),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: AppTheme.dockActiveAmber.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.meeting_room_rounded,
+                  color: AppTheme.dockActiveAmber,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Занятость аудиторий',
+                  style: GoogleFonts.inter(
+                    fontSize: ResponsiveText.title(context),
+                    fontWeight: FontWeight.w700,
+                    color: text,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Интерактивная карта аудиторного фонда: просмотр свободных и занятых кабинетов по корпусам и парам.',
+            style: GoogleFonts.inter(
+              fontSize: 13,
+              color: subtext,
+              height: 1.35,
+            ),
+          ),
+          const SizedBox(height: 14),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              style: FilledButton.styleFrom(
+                backgroundColor: AppTheme.dockActiveAmber,
+                foregroundColor: Colors.black,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const ClassroomOccupancyPage()),
+              ),
+              icon: const Icon(Icons.meeting_room_outlined, size: 20),
+              label: Text(
+                'Открыть занятость аудиторий',
+                style: GoogleFonts.inter(fontWeight: FontWeight.w700),
+              ),
+            ),
+          ),
         ],
       ),
     );

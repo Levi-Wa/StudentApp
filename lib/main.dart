@@ -17,6 +17,7 @@ import 'features/schedule_list/schedule_page.dart';
 import 'features/note_list/note_page.dart';
 import 'features/settings_list/settings_page.dart';
 import 'features/teacher_schedule/teacher_search_page.dart';
+import 'features/classrooms/classroom_occupancy_page.dart';
 import 'theme/app_theme.dart';
 
 void main() async {
@@ -78,6 +79,7 @@ class MyApp extends StatelessWidget {
             '/notes': (context) => const NotePage(),
             '/settings': (context) => const SettingsPage(),
             '/teachers': (context) => const TeacherSearchPage(),
+            '/classrooms': (context) => const ClassroomOccupancyPage(),
           },
         );
       },

@@ -42,8 +42,12 @@ class NotesRepository {
     await box.delete(id);
   }
 
-  Future<Map<String, dynamic>> extendToNextLesson(Note note, FullSchedule schedule) async {
-    final nextLesson = _findNextLesson(note.disc, note.endDate, schedule);
+  Future<Map<String, dynamic>> extendToNextLesson(Note note, FullSchedule? schedule) async {
+    Map<String, dynamic>? nextLesson;
+    if (schedule != null) {
+      nextLesson = _findNextLesson(note.disc, note.endDate, schedule);
+    }
+
     if (nextLesson != null) {
       note.endDate = nextLesson['date'] as DateTime;
       note.endLessonTime = nextLesson['time'] as String;
@@ -85,7 +89,12 @@ class NotesRepository {
 
       // Find matching lesson in this day
       for (final l in day.lessons) {
-        if (l.disc.trim().toLowerCase() == cleanSubject) {
+        final lDisc = l.disc.trim().toLowerCase();
+        final isMatch = lDisc == cleanSubject ||
+            (cleanSubject.length > 4 && lDisc.contains(cleanSubject)) ||
+            (lDisc.length > 4 && cleanSubject.contains(lDisc));
+
+        if (isMatch) {
           if (earliestDate == null || dayDate.isBefore(earliestDate)) {
             earliestDate = dayDate;
             earliestTime = l.time.isNotEmpty ? l.time.split('-')[0].trim() : '09:00';

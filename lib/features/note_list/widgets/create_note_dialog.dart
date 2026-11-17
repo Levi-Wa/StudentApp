@@ -72,11 +72,16 @@ class _CreateNoteDialogState extends State<CreateNoteDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final appState = Provider.of<AppState>(context);
     final cardBg = AppTheme.secondaryBg(context);
     final text = AppTheme.text(context);
     final subtext = AppTheme.subtext(context);
     final surface = AppTheme.surface(context);
     final divider = AppTheme.divider(context);
+
+    if (appState.isTeacherMode && (selectedSubject == null || selectedSubject!.isEmpty)) {
+      _isCustomSubject = true;
+    }
 
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
@@ -263,18 +268,23 @@ class _CreateNoteDialogState extends State<CreateNoteDialog> {
                           Row(
                             children: [
                               Expanded(
-                                child: Text(
-                                  _dateController.text.isNotEmpty
-                                      ? _dateController.text
-                                      : 'Выберите дату',
-                                  style: GoogleFonts.inter(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w600,
-                                    color: text,
+                                child: FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  alignment: Alignment.centerLeft,
+                                  child: Text(
+                                    _dateController.text.isNotEmpty
+                                        ? _dateController.text
+                                        : 'Выберите дату',
+                                    style: GoogleFonts.inter(
+                                      fontSize: 12.5,
+                                      fontWeight: FontWeight.w600,
+                                      color: text,
+                                    ),
+                                    maxLines: 1,
                                   ),
-                                  maxLines: 1,
                                 ),
                               ),
+                              const SizedBox(width: 4),
                               const Icon(Icons.calendar_today_rounded,
                                   size: 14, color: AppTheme.dockActiveAmber),
                             ],
@@ -315,18 +325,23 @@ class _CreateNoteDialogState extends State<CreateNoteDialog> {
                           Row(
                             children: [
                               Expanded(
-                                child: Text(
-                                  _timeController.text.isNotEmpty
-                                      ? _timeController.text
-                                      : '09:00',
-                                  style: GoogleFonts.inter(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w600,
-                                    color: text,
+                                child: FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  alignment: Alignment.centerLeft,
+                                  child: Text(
+                                    _timeController.text.isNotEmpty
+                                        ? _timeController.text
+                                        : '09:00',
+                                    style: GoogleFonts.inter(
+                                      fontSize: 12.5,
+                                      fontWeight: FontWeight.w600,
+                                      color: text,
+                                    ),
+                                    maxLines: 1,
                                   ),
-                                  maxLines: 1,
                                 ),
                               ),
+                              const SizedBox(width: 4),
                               const Icon(Icons.access_time_rounded,
                                   size: 14, color: AppTheme.dockActiveAmber),
                             ],

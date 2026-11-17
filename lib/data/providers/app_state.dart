@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:hive/hive.dart';
 import '../models/full_schedule.dart';
 import '../models/day_schedule.dart';
+import '../models/lesson.dart';
 import '../models/group.dart';
 import '../repositories/schedule_repository.dart';
 import '../services/notification_service.dart';
+import '../services/teacher_service.dart';
 
 class AppState extends ChangeNotifier {
   final ScheduleRepository _repository = ScheduleRepository();
@@ -30,6 +32,13 @@ class AppState extends ChangeNotifier {
   bool _daily17CheckEnabled = true;
   bool _checkUpdatesNotify = true;
   bool _autoUpdateEnabled = false;
+
+  // Role: 'student' or 'teacher'
+  String _userRole = 'student';
+  int? _teacherEmpId;
+  int? _teacherDepartId;
+  String? _teacherFio;
+  String? _teacherDepartName;
 
   late DateTime _selectedWeekStart;
 
@@ -57,6 +66,13 @@ class AppState extends ChangeNotifier {
   bool get daily17CheckEnabled => _daily17CheckEnabled;
   bool get checkUpdatesNotify => _checkUpdatesNotify;
   bool get autoUpdateEnabled => _autoUpdateEnabled;
+
+  String get userRole => _userRole;
+  bool get isTeacherMode => _userRole == 'teacher';
+  int? get teacherEmpId => _teacherEmpId;
+  int? get teacherDepartId => _teacherDepartId;
+  String? get teacherFio => _teacherFio;
+  String? get teacherDepartName => _teacherDepartName;
 
   void setOfflineMode(bool value) {
     _isOfflineMode = value;
@@ -117,6 +133,128 @@ class AppState extends ChangeNotifier {
     notifyListeners();
     final box = await Hive.openBox('settings');
     await box.put('dock_visible', value);
+  }
+
+  Future<void> setUserRole(String role) async {
+    _userRole = role;
+    notifyListeners();
+    final box = await Hive.openBox('settings');
+    await box.put('user_role', role);
+  }
+
+  Future<void> saveTeacherSelection({
+    required int empId,
+    required int departId,
+    required String fio,
+    String? departName,
+  }) async {
+    _userRole = 'teacher';
+    _teacherEmpId = empId;
+    _teacherDepartId = departId;
+    _teacherFio = fio;
+    _teacherDepartName = departName;
+
+    final box = await Hive.openBox('settings');
+    await box.put('user_role', 'teacher');
+    await box.put('teacher_emp_id', empId);
+    await box.put('teacher_depart_id', departId);
+    await box.put('teacher_fio', fio);
+    if (departName != null) {
+      await box.put('teacher_depart_name', departName);
+    }
+    notifyListeners();
+
+    await loadTeacherSchedule();
+  }
+
+  Future<bool> hasSelectedTeacher() async {
+    final box = await Hive.openBox('settings');
+    final empId = box.get('teacher_emp_id');
+    return empId != null;
+  }
+
+  Future<bool> hasSelectedProfile() async {
+    final box = await Hive.openBox('settings');
+    final role = box.get('user_role', defaultValue: 'student');
+    if (role == 'teacher') {
+      final empId = box.get('teacher_emp_id');
+      return empId != null;
+    } else {
+      final groupId = await _repository.getSavedGroupId();
+      return groupId != null;
+    }
+  }
+
+  Future<void> loadTeacherSchedule({bool forceUpdate = false}) async {
+    if (_teacherEmpId == null || _teacherDepartId == null) return;
+    _isLoading = true;
+    _lastSyncError = null;
+    notifyListeners();
+
+    try {
+      final teacherDays = await TeacherService().getTeacherSchedule(
+        departId: _teacherDepartId!,
+        empId: _teacherEmpId!,
+      );
+
+      final List<DaySchedule> days = [];
+      for (final td in teacherDays) {
+        DateTime? dt;
+        try {
+          final clean = td.date.trim();
+          if (clean.contains('-')) {
+            final parts = clean.split('-');
+            if (parts.length == 3) {
+              if (parts[0].length == 4) {
+                dt = DateTime(int.parse(parts[0]), int.parse(parts[1]), int.parse(parts[2]));
+              } else {
+                dt = DateTime(int.parse(parts[2]), int.parse(parts[1]), int.parse(parts[0]));
+              }
+            }
+          } else if (clean.contains('.')) {
+            final parts = clean.split('.');
+            if (parts.length == 3) {
+              final year = parts[2].length == 2 ? 2000 + int.parse(parts[2]) : int.parse(parts[2]);
+              dt = DateTime(year, int.parse(parts[1]), int.parse(parts[0]));
+            }
+          }
+        } catch (_) {}
+
+        final formattedDate = dt != null
+            ? '${dt.day.toString().padLeft(2, '0')}.${dt.month.toString().padLeft(2, '0')}.${dt.year}'
+            : td.date;
+
+        final lessons = td.lessons.map((tl) {
+          return Lesson(
+            time: tl.time,
+            disc: tl.subjName,
+            prepod: tl.groupName.isNotEmpty ? 'Гр: ${tl.groupName}' : tl.empFio,
+            aud: tl.aud,
+            vidZan: tl.loadKind,
+            dayOfWeek: td.dayOfWeek,
+          );
+        }).toList();
+
+        days.add(DaySchedule(
+          date: formattedDate,
+          dayOfWeek: td.dayOfWeek,
+          lessons: lessons,
+        ));
+      }
+
+      _schedule = FullSchedule(
+        group: _teacherFio ?? 'Преподаватель',
+        days: days,
+        lastUpdated: DateTime.now(),
+      );
+      _lastUpdated = DateTime.now();
+      _updateSelectedDayForCurrentSchedule();
+    } catch (e) {
+      _lastSyncError = e.toString();
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
   }
 
   static DateTime normalizeDate(DateTime dt) =>
@@ -188,6 +326,25 @@ class AppState extends ChangeNotifier {
 
   /// Принудительное обновление расписания с сервера (Pull-to-refresh или кнопка)
   Future<bool> forceUpdateSchedule() async {
+    if (_userRole == 'teacher') {
+      _isRefreshing = true;
+      _lastSyncError = null;
+      notifyListeners();
+      try {
+        await loadTeacherSchedule(forceUpdate: true);
+        _isRefreshing = false;
+        _isOfflineMode = false;
+        _hasNetworkConflict = false;
+        notifyListeners();
+        return true;
+      } catch (e) {
+        _lastSyncError = e.toString();
+        _isRefreshing = false;
+        notifyListeners();
+        return false;
+      }
+    }
+
     final groupId = _currentGroupId ?? await _repository.getSavedGroupId();
     final groupName = _currentGroupName ?? await _repository.getSavedGroupName();
 
@@ -381,28 +538,41 @@ class AppState extends ChangeNotifier {
       _autoUpdateEnabled =
           settingsBox.get('auto_update_enabled', defaultValue: false);
 
-      final groupId = await _repository.getSavedGroupId();
-      final groupName = await _repository.getSavedGroupName();
+      _userRole = settingsBox.get('user_role', defaultValue: 'student');
+      _teacherEmpId = settingsBox.get('teacher_emp_id');
+      _teacherDepartId = settingsBox.get('teacher_depart_id');
+      _teacherFio = settingsBox.get('teacher_fio');
+      _teacherDepartName = settingsBox.get('teacher_depart_name');
 
-      if (groupId != null && groupName != null) {
-        _currentGroupId = groupId;
-        _currentGroupName = groupName;
-
-        // 1. Мгновенно загружаем кэшированное расписание для быстрого старта (0 мс ожидания)
-        _schedule = await _repository.getSchedule(groupId, forceUpdate: false);
-        _lastUpdated = await _repository.getLastUpdated();
-        _updateSelectedDayForCurrentSchedule();
-
+      if (_userRole == 'teacher' && _teacherEmpId != null && _teacherDepartId != null) {
+        await loadTeacherSchedule();
         _initialized = true;
         _isLoading = false;
         notifyListeners();
-
-        // 2. В фоне обновляем расписание с сервера, если кэш устарел
-        _backgroundSync(groupId, groupName);
       } else {
-        _initialized = true;
-        _isLoading = false;
-        notifyListeners();
+        final groupId = await _repository.getSavedGroupId();
+        final groupName = await _repository.getSavedGroupName();
+
+        if (groupId != null && groupName != null) {
+          _currentGroupId = groupId;
+          _currentGroupName = groupName;
+
+          // 1. Мгновенно загружаем кэшированное расписание для быстрого старта (0 мс ожидания)
+          _schedule = await _repository.getSchedule(groupId, forceUpdate: false);
+          _lastUpdated = await _repository.getLastUpdated();
+          _updateSelectedDayForCurrentSchedule();
+
+          _initialized = true;
+          _isLoading = false;
+          notifyListeners();
+
+          // 2. В фоне обновляем расписание с сервера, если кэш устарел
+          _backgroundSync(groupId, groupName);
+        } else {
+          _initialized = true;
+          _isLoading = false;
+          notifyListeners();
+        }
       }
 
       await loadGroups();
@@ -561,6 +731,19 @@ class AppState extends ChangeNotifier {
   Future<void> resetApp() async {
     await NotificationService.cancelAllNotifications();
     await _repository.clearAllData();
+
+    final settingsBox = await Hive.openBox('settings');
+    await settingsBox.delete('user_role');
+    await settingsBox.delete('teacher_emp_id');
+    await settingsBox.delete('teacher_depart_id');
+    await settingsBox.delete('teacher_fio');
+    await settingsBox.delete('teacher_depart_name');
+
+    _userRole = 'student';
+    _teacherEmpId = null;
+    _teacherDepartId = null;
+    _teacherFio = null;
+    _teacherDepartName = null;
     _schedule = null;
     _selectedDay = null;
     _selectedDateStr = null;

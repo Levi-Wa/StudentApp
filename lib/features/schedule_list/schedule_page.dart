@@ -8,6 +8,7 @@ import '../../data/providers/theme_provider.dart';
 import '../../data/services/update_service.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/responsive_text.dart';
+import '../classrooms/classroom_occupancy_page.dart';
 import '../teacher_schedule/teacher_search_page.dart';
 import 'widgets/lesson_card.dart';
 import 'widgets/horizontal_week_calendar_dialog.dart';
@@ -699,6 +700,20 @@ class _SchedulePageState extends State<SchedulePage>
             ),
           ),
 
+          // Classroom Occupancy Button (Request 3)
+          IconButton(
+            tooltip: 'Занятость аудиторий',
+            icon: const Icon(
+              Icons.meeting_room_outlined,
+              color: Colors.white70,
+              size: 21,
+            ),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const ClassroomOccupancyPage()),
+            ),
+          ),
+
           // Bottom Icon: Settings Gear (Image 1)
           IconButton(
             tooltip: 'Настройки',
@@ -733,7 +748,7 @@ class _SchedulePageState extends State<SchedulePage>
     Color divider,
   ) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 10, 14, 8),
+      padding: const EdgeInsets.fromLTRB(12, 14, 16, 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -759,13 +774,13 @@ class _SchedulePageState extends State<SchedulePage>
               ),
               const SizedBox(width: 6),
 
-              // Group Pill (wrapped in Expanded so it never pushes the Date Badge off-screen)
+              // Group / Teacher Pill
               Expanded(
                 child: Align(
                   alignment: Alignment.centerLeft,
                   child: InkWell(
                     borderRadius: BorderRadius.circular(10),
-                    onTap: () => Navigator.pushNamed(context, '/settings'),
+                    onTap: () => _showProfileActionsModal(context, appState),
                     child: Container(
                       padding: const EdgeInsets.symmetric(
                           horizontal: 8, vertical: 5),
@@ -777,18 +792,22 @@ class _SchedulePageState extends State<SchedulePage>
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(
-                            Icons.school_rounded,
+                          Icon(
+                            appState.isTeacherMode
+                                ? Icons.person_rounded
+                                : Icons.school_rounded,
                             size: 14,
                             color: AppTheme.dockActiveAmber,
                           ),
                           const SizedBox(width: 5),
                           Flexible(
                             child: Text(
-                              (appState.currentGroupName != null &&
-                                      appState.currentGroupName!.trim().isNotEmpty)
-                                  ? appState.currentGroupName!
-                                  : 'Выбрать группу',
+                              appState.isTeacherMode
+                                  ? (appState.teacherFio ?? 'Преподаватель')
+                                  : ((appState.currentGroupName != null &&
+                                          appState.currentGroupName!.trim().isNotEmpty)
+                                      ? appState.currentGroupName!
+                                      : 'Выбрать группу'),
                               style: GoogleFonts.inter(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w700,
@@ -865,10 +884,10 @@ class _SchedulePageState extends State<SchedulePage>
                   Text(
                     '${activeDate.day}',
                     style: GoogleFonts.inter(
-                      fontSize: 26,
+                      fontSize: 24,
                       fontWeight: FontWeight.w800,
                       color: text,
-                      height: 0.9,
+                      height: 1.0,
                     ),
                   ),
                 ],
@@ -1128,6 +1147,194 @@ class _SchedulePageState extends State<SchedulePage>
           lesson: selectedDay!.lessons[index],
           lessonDate: selectedDay.date,
           index: index,
+        );
+      },
+    );
+  }
+
+  void _showProfileActionsModal(BuildContext context, AppState appState) {
+    final cardBg = AppTheme.secondaryBg(context);
+    final text = AppTheme.text(context);
+    final subtext = AppTheme.subtext(context);
+    final surface = AppTheme.surface(context);
+    final divider = AppTheme.divider(context);
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: cardBg,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 14, 20, 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 36,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: subtext.withValues(alpha: 0.3),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // Profile card
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: surface,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: divider),
+                  ),
+                  child: Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 20,
+                        backgroundColor:
+                            AppTheme.dockActiveAmber.withValues(alpha: 0.15),
+                        child: Icon(
+                          appState.isTeacherMode
+                              ? Icons.person_rounded
+                              : Icons.school_rounded,
+                          color: AppTheme.dockActiveAmber,
+                          size: 22,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              appState.isTeacherMode
+                                  ? (appState.teacherFio ?? 'Преподаватель')
+                                  : (appState.currentGroupName ?? 'Студент'),
+                              style: GoogleFonts.inter(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
+                                color: text,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            Text(
+                              appState.isTeacherMode
+                                  ? (appState.teacherDepartName ?? 'Кафедра преподавателя')
+                                  : 'Учебная группа',
+                              style: GoogleFonts.inter(
+                                fontSize: 12,
+                                color: subtext,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 16),
+                Divider(height: 1, color: divider),
+                const SizedBox(height: 8),
+
+                // Actions
+                ListTile(
+                  dense: true,
+                  leading: const Icon(Icons.meeting_room_outlined,
+                      color: AppTheme.dockActiveAmber),
+                  title: Text(
+                    'Занятость аудиторий',
+                    style: GoogleFonts.inter(
+                        fontSize: 14, color: text, fontWeight: FontWeight.w600),
+                  ),
+                  subtitle: Text(
+                    'Поиск свободных и занятых кабинетов по парам',
+                    style: GoogleFonts.inter(fontSize: 12, color: subtext),
+                  ),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (_) => const ClassroomOccupancyPage()),
+                    );
+                  },
+                ),
+
+                if (appState.isTeacherMode) ...[
+                  ListTile(
+                    dense: true,
+                    leading: const Icon(Icons.school_outlined,
+                        color: AppTheme.dockActiveAmber),
+                    title: Text(
+                      'Расписание студентов',
+                      style: GoogleFonts.inter(
+                          fontSize: 14, color: text, fontWeight: FontWeight.w600),
+                    ),
+                    subtitle: Text(
+                      'Посмотреть пары студенческих групп',
+                      style: GoogleFonts.inter(fontSize: 12, color: subtext),
+                    ),
+                    onTap: () {
+                      Navigator.pop(ctx);
+                      Navigator.pushNamed(context, '/settings');
+                    },
+                  ),
+                ],
+
+                ListTile(
+                  dense: true,
+                  leading: const Icon(Icons.person_search_outlined,
+                      color: AppTheme.dockActiveAmber),
+                  title: Text(
+                    'Расписание преподавателей',
+                    style: GoogleFonts.inter(
+                        fontSize: 14, color: text, fontWeight: FontWeight.w600),
+                  ),
+                  subtitle: Text(
+                    'Поиск по кафедрам и преподавателям',
+                    style: GoogleFonts.inter(fontSize: 12, color: subtext),
+                  ),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (_) => const TeacherSearchPage()),
+                    );
+                  },
+                ),
+
+                ListTile(
+                  dense: true,
+                  leading: const Icon(Icons.settings_outlined,
+                      color: AppTheme.dockActiveAmber),
+                  title: Text(
+                    'Настройки и сменить профиль',
+                    style: GoogleFonts.inter(
+                        fontSize: 14, color: text, fontWeight: FontWeight.w600),
+                  ),
+                  subtitle: Text(
+                    'Сменить роль, тему или оформление',
+                    style: GoogleFonts.inter(fontSize: 12, color: subtext),
+                  ),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    Navigator.pushNamed(context, '/settings');
+                  },
+                ),
+              ],
+            ),
+          ),
         );
       },
     );

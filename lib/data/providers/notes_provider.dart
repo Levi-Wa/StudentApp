@@ -70,24 +70,28 @@ class NotesProvider extends ChangeNotifier {
   }
 
   Future<Map<String, dynamic>> extendToNextLesson(
-      Note note, FullSchedule schedule) async {
+      Note note, [FullSchedule? schedule]) async {
     // Отменяем старое уведомление
-    final oldNotificationId =
-        NotificationService.generateNoteNotificationId(note.id);
-    await NotificationService.cancelNotification(oldNotificationId);
+    try {
+      final oldNotificationId =
+          NotificationService.generateNoteNotificationId(note.id);
+      await NotificationService.cancelNotification(oldNotificationId);
+    } catch (_) {}
 
     final result = await _repository.extendToNextLesson(note, schedule);
 
     // Загружаем обновленную заметку и планируем новое уведомление
     await loadNotes();
-    final updatedNote = _notes.firstWhere(
-      (n) => n.id == note.id,
-      orElse: () => note,
-    );
+    try {
+      final updatedNote = _notes.firstWhere(
+        (n) => n.id == note.id,
+        orElse: () => note,
+      );
 
-    if (updatedNote.id == note.id) {
-      await _scheduleNoteNotification(updatedNote);
-    }
+      if (updatedNote.id == note.id) {
+        await _scheduleNoteNotification(updatedNote);
+      }
+    } catch (_) {}
 
     notifyListeners();
     return result;
