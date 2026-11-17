@@ -10,10 +10,7 @@ import '../../utils/responsive_text.dart';
 class ClassroomOccupancyPage extends StatefulWidget {
   final DateTime? initialDate;
 
-  const ClassroomOccupancyPage({
-    super.key,
-    this.initialDate,
-  });
+  const ClassroomOccupancyPage({super.key, this.initialDate});
 
   @override
   State<ClassroomOccupancyPage> createState() => _ClassroomOccupancyPageState();
@@ -24,6 +21,7 @@ class _ClassroomOccupancyPageState extends State<ClassroomOccupancyPage> {
   final TextEditingController _searchController = TextEditingController();
 
   bool _isLoading = true;
+  bool _isOccupancyLoading = false;
   String? _error;
   ClassroomOccupancyData? _data;
 
@@ -32,6 +30,8 @@ class _ClassroomOccupancyPageState extends State<ClassroomOccupancyPage> {
   int _selectedBuildingIndex = 0;
   String _statusFilter = 'all'; // 'all', 'free', 'busy'
   String _searchQuery = '';
+
+  List<RoomStatus> _allStatuses = [];
 
   @override
   void initState() {
@@ -44,6 +44,78 @@ class _ClassroomOccupancyPageState extends State<ClassroomOccupancyPage> {
   void dispose() {
     _searchController.dispose();
     super.dispose();
+  }
+
+  int? _parseTimeToMinutes(String timeStr) {
+    try {
+      final parts = timeStr.trim().split(':');
+      if (parts.length >= 2) {
+        final h = int.tryParse(parts[0]);
+        final m = int.tryParse(parts[1]);
+        if (h != null && m != null) {
+          return h * 60 + m;
+        }
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  bool _isPairCurrent(ClassroomPair p) {
+    final now = DateTime.now();
+    final isToday = _selectedDate.year == now.year &&
+        _selectedDate.month == now.month &&
+        _selectedDate.day == now.day;
+    if (!isToday) return false;
+
+    final cur = now.hour * 60 + now.minute;
+    final s = _parseTimeToMinutes(p.timeStart);
+    final e = _parseTimeToMinutes(p.timeEnd);
+    if (s == null || e == null || s >= e) return false;
+
+    return cur >= s && cur <= e;
+  }
+
+  ClassroomPair _findCurrentPair(List<ClassroomPair> pairs) {
+    if (pairs.isEmpty) {
+      return ClassroomPair(
+        pairId: 0,
+        pairNumb: 1,
+        timeStart: '08:30',
+        timeEnd: '10:05',
+      );
+    }
+
+    final now = DateTime.now();
+    final currentMinutes = now.hour * 60 + now.minute;
+
+    // Filter out pairs that have zero or invalid times
+    final validPairs = pairs.where((p) {
+      final s = _parseTimeToMinutes(p.timeStart);
+      final e = _parseTimeToMinutes(p.timeEnd);
+      return s != null && e != null && s < e;
+    }).toList();
+
+    if (validPairs.isEmpty) return pairs.first;
+
+    // 1. Check if current time is inside a pair
+    for (final p in validPairs) {
+      final s = _parseTimeToMinutes(p.timeStart)!;
+      final e = _parseTimeToMinutes(p.timeEnd)!;
+      if (currentMinutes >= s && currentMinutes <= e) {
+        return p;
+      }
+    }
+
+    // 2. Check if in a break or before an upcoming pair today
+    for (final p in validPairs) {
+      final s = _parseTimeToMinutes(p.timeStart)!;
+      if (currentMinutes < s) {
+        return p; // Next upcoming pair
+      }
+    }
+
+    // 3. If after all pairs today, return the first pair
+    return validPairs.first;
   }
 
   Future<void> _loadData({bool forceReload = false}) async {
@@ -59,11 +131,12 @@ class _ClassroomOccupancyPageState extends State<ClassroomOccupancyPage> {
           _data = data;
           _isLoading = false;
 
-          // Auto-select current pair based on time if available
           if (data.pairs.isNotEmpty) {
             _selectedPair = _findCurrentPair(data.pairs);
           }
         });
+
+        await _loadOccupancy(forceReload: forceReload);
       }
     } catch (e) {
       if (mounted) {
@@ -75,25 +148,41 @@ class _ClassroomOccupancyPageState extends State<ClassroomOccupancyPage> {
     }
   }
 
-  ClassroomPair _findCurrentPair(List<ClassroomPair> pairs) {
-    final now = DateTime.now();
-    final currentMinutes = now.hour * 60 + now.minute;
-
-    for (final p in pairs) {
-      try {
-        final startParts = p.timeStart.split(':');
-        final endParts = p.timeEnd.split(':');
-        final startMin = int.parse(startParts[0]) * 60 + int.parse(startParts[1]);
-        final endMin = int.parse(endParts[0]) * 60 + int.parse(endParts[1]);
-
-        if (currentMinutes >= startMin && currentMinutes <= endMin) {
-          return p;
-        }
-      } catch (_) {}
+  Future<void> _loadOccupancy({bool forceReload = false}) async {
+    if (_data == null || _data!.buildings.isEmpty || _selectedPair == null) {
+      return;
     }
 
-    // Default to the first pair if none is active
-    return pairs.first;
+    setState(() {
+      _isOccupancyLoading = true;
+    });
+
+    try {
+      final appState = Provider.of<AppState>(context, listen: false);
+      final building =
+          _data!.buildings[_selectedBuildingIndex.clamp(0, _data!.buildings.length - 1)];
+
+      final statuses = await _service.fetchGlobalOccupancy(
+        building: building,
+        date: _selectedDate,
+        pair: _selectedPair!,
+        fallbackSchedule: appState.schedule,
+        forceReload: forceReload,
+      );
+
+      if (mounted) {
+        setState(() {
+          _allStatuses = statuses;
+          _isOccupancyLoading = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _isOccupancyLoading = false;
+        });
+      }
+    }
   }
 
   void _pickDate() async {
@@ -109,7 +198,16 @@ class _ClassroomOccupancyPageState extends State<ClassroomOccupancyPage> {
     if (picked != null) {
       setState(() {
         _selectedDate = picked;
+        if (_data != null && _data!.pairs.isNotEmpty) {
+          final isToday = picked.year == now.year &&
+              picked.month == now.month &&
+              picked.day == now.day;
+          if (isToday) {
+            _selectedPair = _findCurrentPair(_data!.pairs);
+          }
+        }
       });
+      await _loadOccupancy();
     }
   }
 
@@ -136,7 +234,10 @@ class _ClassroomOccupancyPageState extends State<ClassroomOccupancyPage> {
       ),
       builder: (ctx) {
         final isBusy = room.isBusy;
-        final lesson = room.lesson;
+        final subj = room.displaySubject;
+        final teacher = room.displayTeacher;
+        final grp = room.displayGroup;
+        final type = room.displayType;
 
         return SafeArea(
           child: Padding(
@@ -260,35 +361,66 @@ class _ClassroomOccupancyPageState extends State<ClassroomOccupancyPage> {
                         text,
                         subtext,
                       ),
-                      if (isBusy && lesson != null) ...[
-                        const Divider(height: 20),
-                        _buildInfoRow(
-                          Icons.menu_book_rounded,
-                          'Предмет',
-                          lesson.disc,
-                          text,
-                          subtext,
-                        ),
-                        if (lesson.prepod.isNotEmpty) ...[
+                      if (isBusy) ...[
+                        if (subj != null && subj.isNotEmpty) ...[
                           const Divider(height: 20),
                           _buildInfoRow(
-                            Icons.person_rounded,
-                            'Преподаватель / Группа',
-                            lesson.prepod,
+                            Icons.menu_book_rounded,
+                            'Предмет',
+                            subj,
                             text,
                             subtext,
                           ),
                         ],
-                        if (lesson.vidZan.isNotEmpty) ...[
+                        if (grp != null && grp.isNotEmpty) ...[
+                          const Divider(height: 20),
+                          _buildInfoRow(
+                            Icons.group_rounded,
+                            'Группа',
+                            grp,
+                            text,
+                            subtext,
+                          ),
+                        ],
+                        if (teacher != null && teacher.isNotEmpty) ...[
+                          const Divider(height: 20),
+                          _buildInfoRow(
+                            Icons.person_rounded,
+                            'Преподаватель',
+                            teacher,
+                            text,
+                            subtext,
+                          ),
+                        ],
+                        if (type != null && type.isNotEmpty) ...[
                           const Divider(height: 20),
                           _buildInfoRow(
                             Icons.category_rounded,
                             'Тип занятия',
-                            lesson.vidZan,
+                            type,
                             text,
                             subtext,
                           ),
                         ],
+                      ] else ...[
+                        const Divider(height: 20),
+                        Row(
+                          children: [
+                            const Icon(Icons.check_circle_rounded,
+                                size: 18, color: Color(0xFF10B981)),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Аудитория свободна для занятий и подготовки',
+                                style: GoogleFonts.inter(
+                                  fontSize: 12.5,
+                                  fontWeight: FontWeight.w600,
+                                  color: const Color(0xFF10B981),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                       ],
                     ],
                   ),
@@ -366,8 +498,6 @@ class _ClassroomOccupancyPageState extends State<ClassroomOccupancyPage> {
     final surface = AppTheme.surface(context);
     final divider = AppTheme.divider(context);
 
-    final appState = Provider.of<AppState>(context);
-
     return Scaffold(
       backgroundColor: bg,
       appBar: AppBar(
@@ -390,7 +520,7 @@ class _ClassroomOccupancyPageState extends State<ClassroomOccupancyPage> {
           IconButton(
             tooltip: 'Обновить данные',
             icon: Icon(Icons.refresh_rounded, color: text),
-            onPressed: () => _loadData(forceReload: true),
+            onPressed: () => _loadOccupancy(forceReload: true),
           ),
           const SizedBox(width: 4),
         ],
@@ -434,12 +564,11 @@ class _ClassroomOccupancyPageState extends State<ClassroomOccupancyPage> {
                     ),
                   ),
                 )
-              : _buildContent(appState, cardBg, text, subtext, surface, divider),
+              : _buildContent(cardBg, text, subtext, surface, divider),
     );
   }
 
   Widget _buildContent(
-    AppState appState,
     Color cardBg,
     Color text,
     Color subtext,
@@ -453,51 +582,37 @@ class _ClassroomOccupancyPageState extends State<ClassroomOccupancyPage> {
     }
 
     final buildings = _data!.buildings;
-    final currentBuilding = buildings[_selectedBuildingIndex.clamp(0, buildings.length - 1)];
+    final currentBuilding =
+        buildings[_selectedBuildingIndex.clamp(0, buildings.length - 1)];
 
-    // Calculate room statuses
-    List<RoomStatus> roomStatuses = [];
-    if (_selectedPair != null) {
-      roomStatuses = _service.getOccupancyForBuilding(
-        building: currentBuilding,
-        date: _selectedDate,
-        pair: _selectedPair!,
-        schedule: appState.schedule,
-      );
-    } else {
-      roomStatuses = currentBuilding.auds
+    // Filter statuses
+    List<RoomStatus> filteredStatuses = _allStatuses;
+    if (filteredStatuses.isEmpty && !_isOccupancyLoading) {
+      filteredStatuses = currentBuilding.auds
           .map((a) => RoomStatus(classroom: a, isBusy: false))
           .toList();
     }
 
-    // Filter by status
     if (_statusFilter == 'free') {
-      roomStatuses = roomStatuses.where((r) => !r.isBusy).toList();
+      filteredStatuses = filteredStatuses.where((r) => !r.isBusy).toList();
     } else if (_statusFilter == 'busy') {
-      roomStatuses = roomStatuses.where((r) => r.isBusy).toList();
+      filteredStatuses = filteredStatuses.where((r) => r.isBusy).toList();
     }
 
-    // Filter by search query
     if (_searchQuery.trim().isNotEmpty) {
       final q = _searchQuery.trim().toLowerCase();
-      roomStatuses = roomStatuses.where((r) {
+      filteredStatuses = filteredStatuses.where((r) {
         return r.classroom.audName.toLowerCase().contains(q) ||
-            r.classroom.audTypeName.toLowerCase().contains(q);
+            r.classroom.audTypeName.toLowerCase().contains(q) ||
+            (r.displaySubject?.toLowerCase().contains(q) ?? false) ||
+            (r.displayTeacher?.toLowerCase().contains(q) ?? false) ||
+            (r.displayGroup?.toLowerCase().contains(q) ?? false);
       }).toList();
     }
 
     final int totalCount = currentBuilding.auds.length;
-    final int busyCount = _selectedPair != null
-        ? _service
-            .getOccupancyForBuilding(
-              building: currentBuilding,
-              date: _selectedDate,
-              pair: _selectedPair!,
-              schedule: appState.schedule,
-            )
-            .where((r) => r.isBusy)
-            .length
-        : 0;
+    final int busyCount =
+        _allStatuses.where((r) => r.isBusy).length;
     final int freeCount = totalCount - busyCount;
 
     return Column(
@@ -556,10 +671,15 @@ class _ClassroomOccupancyPageState extends State<ClassroomOccupancyPage> {
                   // Today button
                   InkWell(
                     borderRadius: BorderRadius.circular(12),
-                    onTap: () {
+                    onTap: () async {
+                      final now = DateTime.now();
                       setState(() {
-                        _selectedDate = DateTime.now();
+                        _selectedDate = now;
+                        if (_data != null && _data!.pairs.isNotEmpty) {
+                          _selectedPair = _findCurrentPair(_data!.pairs);
+                        }
                       });
+                      await _loadOccupancy();
                     },
                     child: Container(
                       padding: const EdgeInsets.symmetric(
@@ -586,7 +706,7 @@ class _ClassroomOccupancyPageState extends State<ClassroomOccupancyPage> {
               // 2. Pairs horizontal selector
               if (_data!.pairs.isNotEmpty)
                 SizedBox(
-                  height: 38,
+                  height: 40,
                   child: ListView.separated(
                     scrollDirection: Axis.horizontal,
                     itemCount: _data!.pairs.length,
@@ -594,18 +714,20 @@ class _ClassroomOccupancyPageState extends State<ClassroomOccupancyPage> {
                     itemBuilder: (context, index) {
                       final pair = _data!.pairs[index];
                       final isSelected = _selectedPair?.pairId == pair.pairId;
+                      final isNow = _isPairCurrent(pair);
 
                       return InkWell(
                         borderRadius: BorderRadius.circular(10),
-                        onTap: () {
+                        onTap: () async {
                           setState(() {
                             _selectedPair = pair;
                           });
+                          await _loadOccupancy();
                         },
                         child: AnimatedContainer(
                           duration: const Duration(milliseconds: 150),
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 10, vertical: 7),
+                              horizontal: 10, vertical: 6),
                           decoration: BoxDecoration(
                             color: isSelected
                                 ? AppTheme.dockActiveAmber
@@ -614,19 +736,40 @@ class _ClassroomOccupancyPageState extends State<ClassroomOccupancyPage> {
                             border: Border.all(
                               color: isSelected
                                   ? AppTheme.dockActiveAmber
-                                  : divider,
+                                  : isNow
+                                      ? Colors.orange.withValues(alpha: 0.6)
+                                      : divider,
+                              width: isNow ? 1.5 : 1.0,
                             ),
                           ),
                           child: Center(
-                            child: Text(
-                              '${pair.pairNumb}-я пара (${pair.timeStart})',
-                              style: GoogleFonts.inter(
-                                fontSize: 12,
-                                fontWeight: isSelected
-                                    ? FontWeight.w700
-                                    : FontWeight.w500,
-                                color: isSelected ? Colors.black : text,
-                              ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                if (isNow) ...[
+                                  Container(
+                                    width: 6,
+                                    height: 6,
+                                    margin: const EdgeInsets.only(right: 5),
+                                    decoration: BoxDecoration(
+                                      color: isSelected
+                                          ? Colors.black
+                                          : Colors.orange,
+                                      shape: BoxShape.circle,
+                                    ),
+                                  ),
+                                ],
+                                Text(
+                                  '${pair.pairNumb}-я пара (${pair.timeStart})',
+                                  style: GoogleFonts.inter(
+                                    fontSize: 12,
+                                    fontWeight: isSelected
+                                        ? FontWeight.w700
+                                        : FontWeight.w500,
+                                    color: isSelected ? Colors.black : text,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ),
@@ -654,10 +797,11 @@ class _ClassroomOccupancyPageState extends State<ClassroomOccupancyPage> {
 
                   return InkWell(
                     borderRadius: BorderRadius.circular(10),
-                    onTap: () {
+                    onTap: () async {
                       setState(() {
                         _selectedBuildingIndex = index;
                       });
+                      await _loadOccupancy();
                     },
                     child: Container(
                       padding: const EdgeInsets.symmetric(
@@ -708,10 +852,12 @@ class _ClassroomOccupancyPageState extends State<ClassroomOccupancyPage> {
                     controller: _searchController,
                     style: GoogleFonts.inter(fontSize: 13, color: text),
                     decoration: InputDecoration(
-                      hintText: 'Поиск (напр. 606)...',
-                      hintStyle: GoogleFonts.inter(fontSize: 12.5, color: subtext),
+                      hintText: 'Поиск (ауд, группа, препод)...',
+                      hintStyle: GoogleFonts.inter(
+                          fontSize: 12, color: subtext),
                       prefixIcon: const Icon(Icons.search_rounded, size: 18),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 10),
+                      contentPadding:
+                          const EdgeInsets.symmetric(horizontal: 10),
                       filled: true,
                       fillColor: surface,
                       border: OutlineInputBorder(
@@ -739,11 +885,18 @@ class _ClassroomOccupancyPageState extends State<ClassroomOccupancyPage> {
           ),
         ),
 
+        if (_isOccupancyLoading)
+          const LinearProgressIndicator(
+            color: AppTheme.dockActiveAmber,
+            backgroundColor: Colors.transparent,
+            minHeight: 2,
+          ),
+
         Divider(height: 1, color: divider),
 
         // Classrooms Grid
         Expanded(
-          child: roomStatuses.isEmpty
+          child: filteredStatuses.isEmpty
               ? Center(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -775,13 +928,15 @@ class _ClassroomOccupancyPageState extends State<ClassroomOccupancyPage> {
                     crossAxisCount: 2,
                     crossAxisSpacing: 10,
                     mainAxisSpacing: 10,
-                    childAspectRatio: 1.25,
+                    childAspectRatio: 1.15,
                   ),
-                  itemCount: roomStatuses.length,
+                  itemCount: filteredStatuses.length,
                   itemBuilder: (context, index) {
-                    final room = roomStatuses[index];
+                    final room = filteredStatuses[index];
                     final isBusy = room.isBusy;
-                    final lesson = room.lesson;
+                    final subj = room.displaySubject;
+                    final grp = room.displayGroup;
+                    final teacher = room.displayTeacher;
 
                     return InkWell(
                       borderRadius: BorderRadius.circular(16),
@@ -847,7 +1002,7 @@ class _ClassroomOccupancyPageState extends State<ClassroomOccupancyPage> {
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 4),
+                            const SizedBox(height: 3),
 
                             // Type and volume
                             Text(
@@ -864,16 +1019,28 @@ class _ClassroomOccupancyPageState extends State<ClassroomOccupancyPage> {
 
                             const Spacer(),
 
-                            // If busy: subject info; if free: capacity
-                            if (isBusy && lesson != null) ...[
+                            // If busy: group & subject info; if free: capacity
+                            if (isBusy) ...[
+                              if (grp != null && grp.isNotEmpty) ...[
+                                Text(
+                                  grp,
+                                  style: GoogleFonts.inter(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                    color: AppTheme.dockActiveAmber,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
                               Text(
-                                lesson.disc,
+                                subj ?? teacher ?? 'Занятие',
                                 style: GoogleFonts.inter(
-                                  fontSize: 11,
+                                  fontSize: 10.5,
                                   fontWeight: FontWeight.w600,
                                   color: text,
                                 ),
-                                maxLines: 2,
+                                maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                               ),
                             ] else ...[

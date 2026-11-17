@@ -30,7 +30,7 @@ class AppState extends ChangeNotifier {
   bool _hasNetworkConflict = false;
   String _offlineBehavior = 'ask'; // 'ask', 'always_offline', 'disabled'
   bool _daily17CheckEnabled = true;
-  bool _checkUpdatesNotify = true;
+  bool _checkUpdatesNotify = false;
   bool _autoUpdateEnabled = false;
 
   // Role: 'student' or 'teacher'
@@ -534,7 +534,7 @@ class AppState extends ChangeNotifier {
       _daily17CheckEnabled =
           settingsBox.get('daily_17_check', defaultValue: true);
       _checkUpdatesNotify =
-          settingsBox.get('check_updates_notify', defaultValue: true);
+          settingsBox.get('check_updates_notify', defaultValue: false);
       _autoUpdateEnabled =
           settingsBox.get('auto_update_enabled', defaultValue: false);
 

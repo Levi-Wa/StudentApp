@@ -123,14 +123,17 @@ void main() {
       expect(UpdateService.compareVersions('1.1.0', '1.0.9'), 1);
       expect(UpdateService.compareVersions('2.0.0', '1.9.9'), 1);
       expect(UpdateService.compareVersions('v1.0.2', '1.0.1'), 1);
+      expect(UpdateService.compareVersions('1.0.5', '1.0.5'), 0);
       expect(UpdateService.compareVersions('1.0.4', '1.0.4'), 0);
+      expect(UpdateService.compareVersions('1.0.4', '1.0.5'), -1);
       expect(UpdateService.compareVersions('1.0.1', '1.0.1'), 0);
       expect(UpdateService.compareVersions('1.0.0', '1.0.1'), -1);
     });
 
     test('extractVersion correctly parses release tags and names', () {
       expect(UpdateService.extractVersion('1.0.4'), '1.0.4');
-      expect(UpdateService.extractVersion('v1.0.4'), '1.0.4');
+      expect(UpdateService.extractVersion('1.0.5'), '1.0.5');
+      expect(UpdateService.extractVersion('v1.0.5'), '1.0.5');
       expect(UpdateService.extractVersion('Urse 1.0.4'), '1.0.4');
       expect(UpdateService.extractVersion('Urse'), '');
       expect(UpdateService.extractVersion('Release 2.0.1-beta'), '2.0.1');

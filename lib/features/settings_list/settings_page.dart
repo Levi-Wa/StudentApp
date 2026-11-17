@@ -34,7 +34,7 @@ class _SettingsPageState extends State<SettingsPage> {
   Group? _selectedGroup;
 
   // App Update state
-  String _currentAppVersion = '1.0.4';
+  String _currentAppVersion = '1.0.5';
   bool _isCheckingUpdate = false;
   String? _updateStatusMessage;
   AppUpdateInfo? _availableUpdate;

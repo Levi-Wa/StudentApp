@@ -84,7 +84,7 @@ class UpdateService {
 
   /// Checks if an update is available on GitHub
   Future<AppUpdateInfo?> checkForUpdate() async {
-    String currentVersion = '1.0.4';
+    String currentVersion = '1.0.5';
     try {
       final packageInfo = await PackageInfo.fromPlatform();
       if (packageInfo.version.isNotEmpty) {
@@ -102,10 +102,14 @@ class UpdateService {
         final body = data['body'] as String? ??
             'Новая версия приложения готова к установке.';
 
-        // Extract semantic version: try tag first, then name
-        String latestVer = extractVersion(rawTag);
-        if (latestVer.isEmpty) {
-          latestVer = extractVersion(rawName);
+        // Extract semantic version: check both tag and release name, pick highest
+        final verFromTag = extractVersion(rawTag);
+        final verFromName = extractVersion(rawName);
+        String latestVer = verFromTag;
+        if (verFromName.isNotEmpty &&
+            (latestVer.isEmpty ||
+                compareVersions(verFromName, latestVer) > 0)) {
+          latestVer = verFromName;
         }
         if (latestVer.isEmpty) {
           latestVer = rawTag.replaceAll('v', '').trim();
@@ -128,7 +132,8 @@ class UpdateService {
           }
         }
 
-        final isNewer = compareVersions(latestVer, currentVersion) > 0;
+        final isNewer =
+            latestVer.isNotEmpty && compareVersions(latestVer, currentVersion) > 0;
         return AppUpdateInfo(
           latestVersion: latestVer,
           latestVersionCode: 0,
@@ -151,9 +156,13 @@ class UpdateService {
 
         final rawVer = data['version'] as String? ?? '';
         final rawTitle = data['title'] as String? ?? '';
-        String latestVer = extractVersion(rawVer);
-        if (latestVer.isEmpty) {
-          latestVer = extractVersion(rawTitle);
+        final verFromRaw = extractVersion(rawVer);
+        final verFromTitle = extractVersion(rawTitle);
+        String latestVer = verFromRaw;
+        if (verFromTitle.isNotEmpty &&
+            (latestVer.isEmpty ||
+                compareVersions(verFromTitle, latestVer) > 0)) {
+          latestVer = verFromTitle;
         }
         if (latestVer.isEmpty) {
           latestVer = rawVer.isNotEmpty ? rawVer : currentVersion;
@@ -166,7 +175,8 @@ class UpdateService {
             'Доступна свежая версия приложения.';
         final title = rawTitle.isNotEmpty ? rawTitle : 'Обновление v$latestVer';
 
-        final isNewer = compareVersions(latestVer, currentVersion) > 0;
+        final isNewer =
+            latestVer.isNotEmpty && compareVersions(latestVer, currentVersion) > 0;
         return AppUpdateInfo(
           latestVersion: latestVer,
           latestVersionCode: latestCode,
